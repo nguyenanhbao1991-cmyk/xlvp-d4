@@ -133,6 +133,9 @@ powershell -ExecutionPolicy Bypass -File trien_khai\windows\dang_ky_dich_vu.ps1
 
 ## 6. Thiết lập ban đầu (trang quản trị)
 
+Tên trên đầu trang quản trị đặt bằng `QLCBCS_TEN_HE_THONG` trong `qlcbcs.env` (mặc định "QL CBCS LAN"); sửa xong
+chạy `Stop-ScheduledTask QLCBCS-MayChu; Start-ScheduledTask QLCBCS-MayChu`.
+
 Đăng nhập `http://<máy-chủ>:8000/admin/`:
 
 1. **Cấu hình sổ**: cơ quan chủ quản, tên đơn vị, địa danh. Khối ký chỉ in khi bật "đã được đơn vị phê duyệt" và ghi căn cứ phê duyệt.

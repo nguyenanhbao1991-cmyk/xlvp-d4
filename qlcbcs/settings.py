@@ -25,6 +25,8 @@ def _danh_sach(ten, mac_dinh=""):
 KHOA_PHAT_TRIEN = "chi-dung-cho-moi-truong-phat-trien"
 # "san_xuat" trên máy chủ thật: bắt buộc khoá bí mật riêng, bật cookie an toàn.
 CHE_DO = os.environ.get("QLCBCS_CHE_DO", "phat_trien")
+# Tên hiển thị trên đầu trang quản trị và tiêu đề tab trình duyệt.
+TEN_HE_THONG = os.environ.get("QLCBCS_TEN_HE_THONG", "").strip() or "QL CBCS LAN"
 SECRET_KEY = os.environ.get("QLCBCS_SECRET_KEY", KHOA_PHAT_TRIEN)
 DEBUG = _bat("QLCBCS_DEBUG")
 ALLOWED_HOSTS = _danh_sach("QLCBCS_ALLOWED_HOSTS", "localhost,127.0.0.1")

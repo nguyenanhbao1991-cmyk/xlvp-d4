@@ -148,3 +148,8 @@ class DiaChiGocTest(SimpleTestCase):
         phan_hoi = self.client.get("/")
         self.assertEqual(phan_hoi.status_code, 302)
         self.assertEqual(phan_hoi["Location"], "/so/xuat/")
+
+    def test_ten_he_thong_tren_trang_quan_tri(self):
+        phan_hoi = self.client.get("/admin/login/")
+        self.assertContains(phan_hoi, "QL CBCS LAN")
+        self.assertNotContains(phan_hoi, "Django")
