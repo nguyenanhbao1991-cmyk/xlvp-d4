@@ -439,6 +439,21 @@ Quy ước: **Mức** = Cao / Trung bình / Thấp (ưu tiên thực hiện). **
 **TC-NFR-04 — Trình duyệt** · REQ-NFR-04 · Trung bình
 - Mong đợi: TC-GEN-05, TC-EXP-04 đạt trên từng trình duyệt theo `XN-27`.
 
+### 6.8. Màn hình "Xuất sổ theo dõi" (TC-MH)
+
+Tự động hoá trong `baocao/tests/test_man_hinh_xuat.py`; dữ liệu DS-01, đồng hồ giả lập 09:00 27/10/2026.
+
+| Mã | Nội dung | Lớp kiểm thử |
+|---|---|---|
+| TC-MH-01 | Màn hình chỉ hiện sổ được xem; ngày mặc định theo giờ Việt Nam; không tham chiếu tài nguyên Internet | `GiaoDienTest` |
+| TC-MH-02 | Xem trước: thứ tự dòng, lượt qua nửa đêm, chưa hoàn tất, chỉ tiêu; không ghi lịch sử; kỳ trống không có dòng giả | `XemTruocTest` |
+| TC-MH-03 | Xuất ba định dạng: số dòng xem trước = tệp = lịch sử = bản chốt; thông báo thành công đúng giờ Việt Nam | `XuatVaDoiChieuTest` |
+| TC-MH-04 | Kỳ một ngày / khoảng ngày / tháng; ranh giới 00:00 giờ Việt Nam; bộ lọc từ giao diện tới tệp; sổ tổng hợp | `XuatVaDoiChieuTest` |
+| TC-MH-05 | Bản chốt: tải lại trả đúng tệp sau khi dữ liệu gốc đổi; tệp lưu bị sửa thì không tải | `BanChotVaXemTruocTest` |
+| TC-MH-06 | Dữ liệu nhập sai, kỳ quá dài cho Word/PDF, lỗi tạo tệp, lỗi lưu bản chốt | `KiemTraNhapVaThatBaiTest` |
+| TC-MH-07 | Không đủ quyền không tạo tệp; giới hạn cổng; không tải được tệp của người khác hay bằng đường dẫn đoán | `PhanQuyenTest` |
+| TC-MH-08 | Xem trước không phải bản chốt: dữ liệu đổi giữa xem trước và xuất thì báo chênh lệch | `BanChotVaXemTruocTest` |
+
 ---
 
 ## 7. Ma trận truy vết
@@ -495,6 +510,8 @@ Quy ước: **Mức** = Cao / Trung bình / Thấp (ưu tiên thực hiện). **
 | REQ-EXP-05 | (mô tả yêu cầu) | BR-XF-05 | TC-EXP-05 |
 | REQ-EXP-06 | (mô tả yêu cầu) | BR-KY-06 | TC-EXP-06 |
 | REQ-EXP-07 | (mô tả yêu cầu) | — | TC-EXP-10 |
+| REQ-EXP-08 | AC-EXP-08.1–08.3 | BR-KY-01, BR-KY-02, BR-TX-06 | TC-MH-01…TC-MH-04, TC-MH-06, TC-MH-08 |
+| REQ-EXP-09 | AC-EXP-09.1–09.2 | BR-DC-07, BR-TX-05 | TC-MH-05, TC-MH-07 |
 | REQ-NFR-01 | Bảng mục 8 | — | TC-NFR-01 |
 | REQ-NFR-02 | Bảng mục 8 | BR-IN-02 | TC-NFR-02 |
 | REQ-NFR-03 | Bảng mục 8 | BR-KY-01 | TC-NFR-03 |

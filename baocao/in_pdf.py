@@ -44,6 +44,10 @@ def _thu_muc_phong():
     return Path(getattr(settings, "QLCBCS_THU_MUC_PHONG", Path(__file__).parent / "fonts"))
 
 
+def tep_phong_can_co():
+    return [_thu_muc_phong() / tep for tep in _TEP_PHONG.values()]
+
+
 def _dang_ky_phong():
     if PHONG in pdfmetrics.getRegisteredFontNames():
         return

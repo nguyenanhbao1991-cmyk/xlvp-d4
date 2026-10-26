@@ -399,6 +399,19 @@ Khi số dòng vượt giới hạn PDF/Word (`XN-18`), hệ thống thông báo
 Xuất và in hoạt động bình thường khi máy chủ và máy trạm không có kết nối Internet.
 - Kiểm thử: TC-EXP-10.
 
+#### REQ-EXP-08 — Màn hình "Xuất sổ theo dõi" (M)
+Một màn hình (`/so/xuat/`) cho chọn loại sổ, khoảng thời gian (một ngày, từ ngày đến ngày gồm cả ngày cuối, theo tháng — giờ Việt Nam), bộ lọc của sổ, định dạng có thể dùng trên máy chủ; xem trước số dòng và các dòng đầu; thông báo thành công/thất bại; liên kết tải tệp.
+- AC-EXP-08.1: Ngày bắt đầu sau ngày kết thúc bị từ chối với thông báo "Ngày bắt đầu không được sau ngày kết thúc."; không ghi lịch sử.
+- AC-EXP-08.2: Xem trước ghi rõ "chưa phải dữ liệu đã chốt", không cấp mã, không ghi lịch sử; số dòng xem trước bằng số dòng tệp khi dữ liệu không đổi; nếu dữ liệu đổi trước khi xuất, màn hình báo chênh lệch.
+- AC-EXP-08.3: Người không đủ quyền không có lịch sử xuất, mã trích xuất hay tệp nào được tạo.
+- Kiểm thử: `baocao/tests/test_man_hinh_xuat.py` (TC-MH-01…TC-MH-08, `test_plan.md` §6.8).
+
+#### REQ-EXP-09 — Bản chốt và tải tệp (M)
+Mỗi lần xuất thành công lưu bản chốt gồm tệp đã tạo và dữ liệu cấu trúc đã dùng (mã lượt, trạng thái, thời điểm, chỉ tiêu; không gồm họ tên, số giấy tờ). Tải lại trả đúng tệp đã lưu (kiểm tra SHA-256), không truy vấn lại dữ liệu hiện hành. Lịch sử xuất ghi phiên bản mẫu, số lần tải, lần tải cuối.
+- AC-EXP-09.1: Đường dẫn tải dùng mã ngẫu nhiên (UUID v4); chỉ người đã xuất và còn quyền xuất sổ đó tải được; mọi trường hợp khác trả 404 như nhau.
+- AC-EXP-09.2: Lưu bản chốt và ghi "Thành công" trong cùng một giao dịch.
+- Kiểm thử: TC-MH-05, TC-MH-07.
+
 ---
 
 ## 8. Yêu cầu phi chức năng (REQ-NFR)

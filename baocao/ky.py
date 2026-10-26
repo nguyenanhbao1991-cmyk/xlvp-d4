@@ -46,6 +46,27 @@ class KyBaoCao:
             )
 
     @classmethod
+    def theo_ngay(cls, ngay_dau, ngay_cuoi):
+        """Kỳ trọn ngày từ 00:00 ``ngay_dau`` đến hết ``ngay_cuoi`` (gồm cả ngày cuối), giờ Việt Nam.
+
+        Dùng múi giờ mặc định của hệ thống (Asia/Ho_Chi_Minh, BR-KY-01) chứ không dùng múi giờ
+        đang kích hoạt cho phiên, để cùng một ngày luôn ra cùng một khoảng thời gian.
+        """
+        if ngay_dau > ngay_cuoi:
+            raise ValidationError("Ngày bắt đầu không được sau ngày kết thúc.", code="ngay_nguoc")
+        mui_gio = timezone.get_default_timezone()
+
+        def nua_dem(ngay):
+            return datetime.datetime.combine(ngay, datetime.time(), tzinfo=mui_gio)
+
+        return cls(nua_dem(ngay_dau), nua_dem(ngay_cuoi + datetime.timedelta(days=1)))
+
+    @classmethod
+    def theo_thang(cls, nam, thang):
+        dau = datetime.date(nam, thang, 1)
+        return cls.theo_ngay(dau, _thang_sau(dau) - datetime.timedelta(days=1))
+
+    @classmethod
     def tu_lua_chon(cls, ma, bay_gio, gio_giao_ca):
         hom_nay = timezone.localtime(bay_gio).date()
         mot_ngay = datetime.timedelta(days=1)

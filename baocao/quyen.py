@@ -21,6 +21,7 @@ class DinhNghiaSo:
     nhom: str | None  # None với sổ tổng hợp
     quyen_xem: str
     quyen_xuat: str
+    phien_ban_mau: str = "1.0"  # Tăng khi bố cục mẫu thay đổi (BR-IN-01); lưu vào lịch sử xuất.
 
 
 SO = {

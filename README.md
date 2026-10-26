@@ -19,7 +19,8 @@ Excel, Word và PDF**: SO-01 CBCS, SO-02 Khách, SO-03 Phương tiện, SO-04 T�
 | `baocao/bo_cuc.py` | Bố cục bản in (Word/PDF): khối đầu sổ, bảng, phụ lục, khối ký; chọn khổ/hướng giấy theo số cột |
 | `baocao/in_word.py` | Vẽ bố cục ra `.docx` bằng python-docx (tiêu đề bảng lặp, không ngắt dòng, số trang) |
 | `baocao/in_pdf.py` | Vẽ bố cục ra PDF bằng ReportLab, nhúng phông `baocao/fonts/` (Liberation Serif, SIL OFL) |
-| `baocao/dich_vu.py` | Điều phối một lần xuất: mã trích xuất, lịch sử xuất, đọc nhất quán |
+| `baocao/dich_vu.py` | Điều phối một lần xuất: mã trích xuất, lịch sử xuất, đọc nhất quán, lưu bản chốt |
+| `baocao/xem_truoc.py`, `baocao/man_hinh.py` | Màn hình “Xuất sổ theo dõi”: xem trước (không chốt), xuất, tải tệp đã chốt |
 | `baocao/tests/` | Kiểm thử; `du_lieu.py` dựng bộ dữ liệu DS-01 của `docs/test_plan.md` |
 
 ## Chạy thử
@@ -32,7 +33,9 @@ python manage.py createsuperuser
 python manage.py runserver 0.0.0.0:8000
 ```
 
-- Trang chọn sổ: `/so/` (cần đăng nhập qua `/admin/`).
+- Màn hình **Xuất sổ theo dõi**: `/so/xuat/` — chọn sổ, kỳ (ngày / khoảng ngày / tháng), bộ lọc, định dạng; xem
+  trước; xuất; tải lại tệp đã xuất qua `/so/tai/<mã tải>/` (chỉ người đã xuất, còn quyền xuất).
+- Trang chọn sổ dạng cũ: `/so/` (cần đăng nhập qua `/admin/`).
 - Xuất trực tiếp: `GET /so/<cbcs|khach|phuong-tien|tong-hop>/<xuat-excel|xuat-word|xuat-pdf>/?tu=2026-10-25T00:00&den=2026-10-26T00:00`
   hoặc `?ky=hom_nay|hom_qua|ca_hien_tai|ca_truoc|tuan_nay|thang_nay|thang_truoc`, cùng bộ lọc của từng sổ
   (`baocao/forms.py`).

@@ -24,9 +24,11 @@ class BoLocChung(forms.Form):
         help_text="Để trống: người xuất. Nhập tên đăng nhập để chọn người khác, hoặc “__trong__” để ký tay.",
     )
 
-    def __init__(self, *args, nguoi_dung=None, **kwargs):
+    def __init__(self, *args, nguoi_dung=None, ky_co_dinh=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.nguoi_dung = nguoi_dung
+        # Màn hình "Xuất sổ theo dõi" tự tính kỳ (một ngày / khoảng ngày / tháng) và truyền vào đây.
+        self.ky_co_dinh = ky_co_dinh
 
     def clean_nguoi_lap_so(self):
         gia_tri = (self.cleaned_data.get("nguoi_lap_so") or "").strip()
@@ -41,6 +43,9 @@ class BoLocChung(forms.Form):
     def clean(self):
         du_lieu = super().clean()
         if self.errors:
+            return du_lieu
+        if self.ky_co_dinh is not None:
+            du_lieu["ky_bao_cao"] = self.ky_co_dinh
             return du_lieu
         try:
             if du_lieu.get("ky"):
@@ -123,3 +128,72 @@ class BoLocTongHop(BoLocChung):
 
 
 FORM_THEO_SO = {"SO-01": BoLocCBCS, "SO-02": BoLocKhach, "SO-03": BoLocPhuongTien, "SO-04": BoLocTongHop}
+
+
+# ---------------------------------------------------------------------------
+# Màn hình "Xuất sổ theo dõi"
+# ---------------------------------------------------------------------------
+
+TRUONG_KY_CU = ("ky", "tu", "den")  # Không hiển thị trên màn hình: kỳ chọn ở phần chung.
+DINH_DANG = [("xlsx", "Excel (.xlsx)"), ("docx", "Word (.docx)"), ("pdf", "PDF")]
+CHE_DO_KY = [("ngay", "Một ngày"), ("khoang", "Từ ngày đến ngày"), ("thang", "Theo tháng")]
+DINH_DANG_NGAY = ["%Y-%m-%d", "%d/%m/%Y"]
+
+
+def tien_to(dinh_nghia):
+    return dinh_nghia.ma_gon.lower()
+
+
+class FormXuatSo(forms.Form):
+    loai_so = forms.ChoiceField(label="Loại sổ")
+    che_do_ky = forms.ChoiceField(label="Khoảng thời gian", choices=CHE_DO_KY, initial="ngay")
+    ngay = forms.DateField(label="Ngày", required=False, input_formats=DINH_DANG_NGAY,
+                           widget=forms.DateInput(attrs={"type": "date"}))
+    tu_ngay = forms.DateField(label="Từ ngày", required=False, input_formats=DINH_DANG_NGAY,
+                              widget=forms.DateInput(attrs={"type": "date"}))
+    den_ngay = forms.DateField(label="Đến ngày (gồm cả ngày này)", required=False, input_formats=DINH_DANG_NGAY,
+                               widget=forms.DateInput(attrs={"type": "date"}))
+    thang = forms.RegexField(label="Tháng", required=False, regex=r"^\d{4}-(0[1-9]|1[0-2])$",
+                             error_messages={"invalid": "Tháng phải có dạng NNNN-TT, ví dụ 2026-10."},
+                             widget=forms.TextInput(attrs={"type": "month", "placeholder": "2026-10"}))
+    dinh_dang = forms.ChoiceField(label="Định dạng", choices=DINH_DANG, initial="xlsx")
+    # Số dòng lúc xem trước: chỉ để so sánh, không dùng làm số liệu xuất.
+    so_dong_xem_truoc = forms.IntegerField(required=False, min_value=0, widget=forms.HiddenInput)
+
+    def __init__(self, *args, cac_so=(), kha_nang=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["loai_so"].choices = [(dn.ma, f"{dn.ma} — {dn.ten}") for dn in cac_so]
+        self.kha_nang = kha_nang or {}
+
+    def clean_dinh_dang(self):
+        dinh_dang = self.cleaned_data["dinh_dang"]
+        if dinh_dang in self.kha_nang:
+            raise ValidationError(f"Định dạng này chưa dùng được trên máy chủ: {self.kha_nang[dinh_dang]}")
+        return dinh_dang
+
+    def clean(self):
+        du_lieu = super().clean()
+        che_do = du_lieu.get("che_do_ky")
+        try:
+            if che_do == "ngay":
+                if not du_lieu.get("ngay"):
+                    self.add_error("ngay", "Chọn ngày.")
+                    return du_lieu
+                du_lieu["ky_bao_cao"] = KyBaoCao.theo_ngay(du_lieu["ngay"], du_lieu["ngay"])
+            elif che_do == "khoang":
+                tu, den = du_lieu.get("tu_ngay"), du_lieu.get("den_ngay")
+                if not tu or not den:
+                    self.add_error("tu_ngay" if not tu else "den_ngay", "Chọn đủ ngày bắt đầu và ngày kết thúc.")
+                    return du_lieu
+                du_lieu["ky_bao_cao"] = KyBaoCao.theo_ngay(tu, den)
+            elif che_do == "thang":
+                if not du_lieu.get("thang"):
+                    if "thang" not in self.errors:
+                        self.add_error("thang", "Chọn tháng.")
+                    return du_lieu
+                nam, thang = map(int, du_lieu["thang"].split("-"))
+                du_lieu["ky_bao_cao"] = KyBaoCao.theo_thang(nam, thang)
+        except ValidationError as loi:
+            truong = {"ngay": "ngay", "khoang": "den_ngay", "thang": "thang"}[che_do]
+            self.add_error(truong, loi)
+        return du_lieu

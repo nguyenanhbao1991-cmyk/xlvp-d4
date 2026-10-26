@@ -17,7 +17,7 @@ from django.db import connection, transaction
 from django.utils import timezone
 
 from . import bo_cuc, dong_ho, excel, in_pdf, in_word, quyen, so_lieu, trinh_bay
-from .models import BoDemTrichXuat, CauHinhSo, LichSuXuat
+from .models import BanChotXuat, BoDemTrichXuat, CauHinhSo, LichSuXuat
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,15 @@ class LoiXuat(Exception):
 
 class LoiGioiHan(Exception):
     """Dữ liệu vượt giới hạn của định dạng — từ chối thay vì tạo tệp bị cắt (REQ-EXP-06)."""
+
+
+def kha_nang_dinh_dang():
+    """{định dạng: lý do không dùng được} — rỗng nghĩa là dùng được trên máy chủ này."""
+    ly_do = {}
+    thieu = [p.name for p in in_pdf.tep_phong_can_co() if not p.exists()]
+    if thieu:
+        ly_do["pdf"] = "Thiếu phông chữ nhúng cho PDF: " + ", ".join(thieu)
+    return ly_do
 
 
 def kiem_tra_ky_theo_dinh_dang(dinh_nghia, ky, dinh_dang):
@@ -125,6 +134,7 @@ def xuat(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan_day_d
     lich_su = LichSuXuat.objects.create(
         ma_trich_xuat=_cap_ma(dinh_nghia, bat_dau),
         ma_so=dinh_nghia.ma,
+        phien_ban_mau=dinh_nghia.phien_ban_mau,
         dinh_dang=dinh_dang,
         tu=ky.tu,
         den=ky.den,
@@ -166,6 +176,24 @@ def xuat(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan_day_d
             so_dong = sum(so_dong.values())
         if not noi_dung:
             raise excel.LoiDuLieuExcel("Tệp tạo ra rỗng.")
+        ten = ten_file(dinh_nghia, ky, lich_su.ma_trich_xuat, dinh_dang)
+        # Lưu bản chốt và đánh dấu thành công trong cùng một giao dịch: không bao giờ có lịch sử
+        # "Thành công" mà thiếu tệp, hoặc tệp đã lưu mà lịch sử vẫn "Đang xử lý".
+        with transaction.atomic():
+            BanChotXuat.objects.create(
+                lich_su=lich_su, noi_dung=noi_dung, kich_thuoc=len(noi_dung),
+                du_lieu=du_lieu_chot(ket_qua, dinh_nghia),
+            )
+            LichSuXuat.objects.filter(pk=lich_su.pk).update(
+                ket_qua=LichSuXuat.KetQua.THANH_CONG,
+                thoi_diem_trich_xuat=thoi_diem,
+                thoi_diem_chot=chot,
+                ket_thuc_luc=dong_ho.hien_tai(),
+                so_dong=so_dong,
+                chi_tieu=chi_tieu,
+                ten_file=ten,
+                sha256=hashlib.sha256(noi_dung).hexdigest(),
+            )
     except Exception as loi:
         logger.exception("Xuất %s thất bại (%s)", dinh_nghia.ma, lich_su.ma_trich_xuat)
         LichSuXuat.objects.filter(pk=lich_su.pk).update(
@@ -180,19 +208,48 @@ def xuat(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan_day_d
             thong_bao = f"Không tạo được tệp {TEN_DINH_DANG[dinh_dang]}."
         raise LoiXuat(thong_bao, lich_su) from loi
 
-    ten = ten_file(dinh_nghia, ky, lich_su.ma_trich_xuat, dinh_dang)
-    LichSuXuat.objects.filter(pk=lich_su.pk).update(
-        ket_qua=LichSuXuat.KetQua.THANH_CONG,
-        thoi_diem_trich_xuat=thoi_diem,
-        thoi_diem_chot=chot,
-        ket_thuc_luc=dong_ho.hien_tai(),
-        so_dong=so_dong,
-        chi_tieu=chi_tieu,
-        ten_file=ten,
-        sha256=hashlib.sha256(noi_dung).hexdigest(),
-    )
     lich_su.refresh_from_db()
     return TepXuat(ten, noi_dung, lich_su)
+
+
+def _iso(gia_tri):
+    return gia_tri.isoformat() if gia_tri else None
+
+
+def _dong_chot(d):
+    """Dữ liệu cấu trúc của một dòng — không gồm họ tên, số giấy tờ hay văn bản tự do."""
+    l = d.luot
+    return {
+        "stt": d.stt, "ma_luot": l.pk, "trang_thai": d.trang_thai, "qua_han": d.qua_han,
+        "chieu": l.chieu, "mo": _iso(l.mo_thoi_diem), "dong": _iso(l.dong_thoi_diem),
+        "cong_mo": l.mo_cong.ma, "cong_dong": l.dong_cong.ma if l.dong_cong else None,
+        "tu_ky_truoc": d.tu_ky_truoc, "sau_ky": d.sau_ky,
+        "thoi_luong_phut": int(d.thoi_luong.total_seconds() // 60) if d.thoi_luong is not None else None,
+        "thoi_luong_toi_thieu": d.thoi_luong_toi_thieu,
+        "dinh_chinh": [{"n": n, "ma": dc.pk} for n, dc in d.dinh_chinh],
+        "ghi_bo_sung": d.ghi_bo_sung, "chong_luot": d.chong_luot, "loi_thoi_gian": d.loi_thoi_gian,
+    }
+
+
+def du_lieu_chot(ket_qua, dinh_nghia):
+    """Bản chốt dữ liệu riêng của lần xuất: giữ nguyên lịch sử dù dữ liệu gốc thay đổi về sau."""
+    chung = {
+        "ma_so": dinh_nghia.ma, "phien_ban_mau": dinh_nghia.phien_ban_mau,
+        "ky": {"tu": _iso(ket_qua.ky.tu), "den": _iso(ket_qua.ky.den)}, "chot": _iso(ket_qua.chot),
+        "dieu_kien_loc": _dieu_kien_loc_json(ket_qua.bo_loc),
+    }
+    if isinstance(ket_qua, so_lieu.KetQuaSoChiTiet):
+        return {**chung, "chi_tieu": _json_duoc(ket_qua.chi_tieu), "dong": [_dong_chot(d) for d in ket_qua.dong]}
+    return {
+        **chung,
+        "nhom": list(ket_qua.nhom),
+        "phan_a": _json_duoc(ket_qua.phan_a),
+        "phan_b": [{"ngay": ngay.isoformat(), **{n: list(v) for n, v in hang.items()}} for ngay, hang in ket_qua.phan_b],
+        "phan_b_cuoi": {n: list(v) for n, v in ket_qua.phan_b_cuoi.items()},
+        "phan_c": [{"cong": cong.ma, **{n: list(v) for n, v in so.items()}} for cong, so in ket_qua.phan_c],
+        "phan_c_cuoi": {n: list(v) for n, v in ket_qua.phan_c_cuoi.items()},
+        "phan_d": {n: [_dong_chot(d) for d in dong] for n, dong in ket_qua.phan_d.items()},
+    }
 
 
 def _json_duoc(gia_tri):

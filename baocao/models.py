@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -75,7 +76,10 @@ class LichSuXuat(models.Model):
         THAT_BAI = "THAT_BAI", "Thất bại"
 
     ma_trich_xuat = models.CharField("mã trích xuất", max_length=40, unique=True)
+    # Mã tải tệp: ngẫu nhiên, không suy ra được từ mã trích xuất (tăng dần) hay khoá chính.
+    ma_tai = models.UUIDField("mã tải", default=uuid.uuid4, unique=True, editable=False)
     ma_so = models.CharField("mã sổ", max_length=10, db_index=True)
+    phien_ban_mau = models.CharField("phiên bản mẫu", max_length=20, blank=True)
     dinh_dang = models.CharField("định dạng", max_length=10, default="xlsx")
     tu = models.DateTimeField("kỳ từ")
     den = models.DateTimeField("kỳ đến (không gồm)")
@@ -96,6 +100,8 @@ class LichSuXuat(models.Model):
     ten_file = models.CharField("tên file", max_length=200, blank=True)
     sha256 = models.CharField(max_length=64, blank=True)
     dia_chi_ip = models.GenericIPAddressField(null=True, blank=True)
+    so_lan_tai = models.PositiveIntegerField("số lần tải", default=0)
+    tai_lan_cuoi = models.DateTimeField("tải lần cuối", null=True, blank=True)
 
     class Meta:
         verbose_name = "lịch sử xuất"
@@ -104,3 +110,21 @@ class LichSuXuat(models.Model):
 
     def __str__(self):
         return f"{self.ma_trich_xuat} ({self.get_ket_qua_display()})"
+
+
+class BanChotXuat(models.Model):
+    """Bản chốt của một lần xuất thành công: tệp đã tạo và dữ liệu đã dùng để tạo tệp.
+
+    Tải lại luôn trả đúng tệp này (kiểm tra SHA-256), không truy vấn lại dữ liệu hiện hành,
+    nên bản đã xuất giữ nguyên dù dữ liệu gốc về sau được đính chính (BR-DC-07).
+    """
+
+    lich_su = models.OneToOneField(LichSuXuat, on_delete=models.PROTECT, related_name="ban_chot")
+    noi_dung = models.BinaryField("nội dung tệp")
+    kich_thuoc = models.PositiveIntegerField("kích thước (byte)")
+    du_lieu = models.JSONField("dữ liệu đã chốt")
+    tao_luc = models.DateTimeField("tạo lúc", default=timezone.now)
+
+    class Meta:
+        verbose_name = "bản chốt xuất sổ"
+        verbose_name_plural = "bản chốt xuất sổ"

@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Xuất sổ theo dõi</title>
+  <style>
+    :root { --chu: #111; --nen: #fff; --vien: #b8b8b8; --phu: #555; --nhat: #f3f3f3;
+            --tot: #1b5e20; --tot-nen: #e8f5e9; --loi: #b71c1c; --loi-nen: #fdecea;
+            --canh: #6d4c00; --canh-nen: #fff6d6; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, "Segoe UI", Arial, sans-serif; margin: 0; padding: 16px; color: var(--chu);
+           background: var(--nen); font-size: 15px; line-height: 1.45; }
+    main { max-width: 1280px; margin: 0 auto; }
+    h1 { font-size: 1.4rem; margin: 0 0 12px; }
+    h2 { font-size: 1.1rem; margin: 0 0 8px; }
+    fieldset { border: 1px solid var(--vien); padding: 10px 14px; margin: 0 0 12px; }
+    legend { font-weight: 600; padding: 0 4px; }
+    .hang { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+    .o { display: flex; flex-direction: column; min-width: 180px; }
+    .o label { font-size: .9rem; color: var(--phu); }
+    .o.chon { flex-direction: row; align-items: center; gap: 6px; min-width: 0; }
+    input, select { font: inherit; padding: 4px 6px; max-width: 100%; }
+    select[multiple] { min-height: 5em; }
+    .loi-truong { color: var(--loi); font-size: .9rem; }
+    .thong-bao { padding: 8px 12px; margin: 0 0 10px; border-left: 4px solid; }
+    .thong-bao.success { color: var(--tot); background: var(--tot-nen); }
+    .thong-bao.error { color: var(--loi); background: var(--loi-nen); }
+    .thong-bao.warning { color: var(--canh); background: var(--canh-nen); }
+    .nut { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 16px; }
+    button { font: inherit; padding: 6px 16px; cursor: pointer; }
+    button.chinh { font-weight: 600; }
+    .khung { border: 1px solid var(--vien); padding: 12px 14px; margin: 0 0 16px; }
+    .xem-truoc-nhan { display: inline-block; font-weight: 700; border: 2px solid var(--canh); color: var(--canh);
+                      padding: 2px 8px; margin-bottom: 6px; }
+    .cuon { overflow-x: auto; max-height: 60vh; overflow-y: auto; border: 1px solid var(--vien); }
+    table { border-collapse: collapse; font-size: .88rem; width: 100%; }
+    th, td { border: 1px solid var(--vien); padding: 3px 6px; vertical-align: top; text-align: left; }
+    thead th { background: var(--nhat); position: sticky; top: 0; }
+    tr.chua-hoan-tat td { font-weight: 700; }
+    tr.da-huy td { font-style: italic; color: var(--phu); }
+    td.so { text-align: right; }
+    .phu { color: var(--phu); font-size: .9rem; }
+    .an { display: none; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Xuất sổ theo dõi</h1>
+
+  {% for m in messages %}
+    <div class="thong-bao {{ m.tags }}" role="{% if m.tags == 'error' %}alert{% else %}status{% endif %}">{{ m }}</div>
+  {% endfor %}
+
+  {% if ket_qua %}
+    <section class="khung" aria-label="Kết quả xuất">
+      <h2>Kết quả: {{ ket_qua.get_ket_qua_display }} — {{ ket_qua.ma_trich_xuat }}</h2>
+      <p class="phu">{{ ket_qua.ma_so }} · {{ ket_qua.dinh_dang }} · mẫu phiên bản {{ ket_qua.phien_ban_mau }}
+        · kỳ {{ ket_qua.tu|date:"d/m/Y H:i" }} – {{ ket_qua.den|date:"d/m/Y H:i" }} (không gồm thời điểm cuối)</p>
+      {% if ket_qua.ket_qua == "THANH_CONG" %}
+        <p>{{ ket_qua.so_dong }} dòng dữ liệu · số liệu tính đến {{ ket_qua.thoi_diem_chot|date:"H:i:s d/m/Y" }}.</p>
+        <p><a href="{% url 'baocao:tai_tep' ket_qua.ma_tai %}">Tải tệp {{ ket_qua.ten_file }}</a></p>
+      {% elif ket_qua.ket_qua == "THAT_BAI" %}
+        <p>Không có tệp nào được tạo. Lý do đã được ghi vào lịch sử xuất.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <form method="post" action="{% url 'baocao:man_hinh_xuat' %}" novalidate>
+    {% csrf_token %}
+    {{ form.so_dong_xem_truoc }}
+    {% if form.non_field_errors %}<div class="thong-bao error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+    <fieldset>
+      <legend>Loại sổ và định dạng</legend>
+      <div class="hang">
+        <div class="o">
+          <label for="{{ form.loai_so.id_for_label }}">{{ form.loai_so.label }}</label>
+          {{ form.loai_so }}
+          {% for e in form.loai_so.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="o">
+          <label for="{{ form.dinh_dang.id_for_label }}">{{ form.dinh_dang.label }}</label>
+          {{ form.dinh_dang }}
+          {% for e in form.dinh_dang.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+          {% for ma, ly_do in kha_nang.items %}<span class="loi-truong">{{ ma }}: {{ ly_do }}</span>{% endfor %}
+        </div>
+      </div>
+      <p class="phu">Word và PDF của sổ chi tiết chỉ lập cho kỳ tối đa 31 ngày và 5.000 dòng; Excel tối đa 366 ngày.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Khoảng thời gian (giờ Việt Nam)</legend>
+      <div class="hang">
+        <div class="o">
+          <label for="{{ form.che_do_ky.id_for_label }}">{{ form.che_do_ky.label }}</label>
+          {{ form.che_do_ky }}
+        </div>
+        <div class="o" data-che-do="ngay">
+          <label for="{{ form.ngay.id_for_label }}">{{ form.ngay.label }}</label>{{ form.ngay }}
+          {% for e in form.ngay.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="o" data-che-do="khoang">
+          <label for="{{ form.tu_ngay.id_for_label }}">{{ form.tu_ngay.label }}</label>{{ form.tu_ngay }}
+          {% for e in form.tu_ngay.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="o" data-che-do="khoang">
+          <label for="{{ form.den_ngay.id_for_label }}">{{ form.den_ngay.label }}</label>{{ form.den_ngay }}
+          {% for e in form.den_ngay.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="o" data-che-do="thang">
+          <label for="{{ form.thang.id_for_label }}">{{ form.thang.label }}</label>{{ form.thang }}
+          {% for e in form.thang.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+        </div>
+      </div>
+      <p class="phu">Kỳ tính từ 00:00 ngày bắt đầu đến hết ngày kết thúc. Lượt qua nửa đêm vẫn là một dòng.</p>
+    </fieldset>
+
+    {% for nhom in nhom_bo_loc %}
+      <fieldset data-so="{{ nhom.dinh_nghia.ma }}">
+        <legend>Bộ lọc — {{ nhom.dinh_nghia.ma }} {{ nhom.dinh_nghia.ten }}</legend>
+        {% if not nhom.duoc_xuat %}<p class="loi-truong">Bạn chỉ có quyền xem trước sổ này, không có quyền xuất.</p>{% endif %}
+        {% for e in nhom.loi_chung %}<p class="loi-truong">{{ e }}</p>{% endfor %}
+        <div class="hang">
+          {% for t in nhom.truong %}
+            <div class="o{% if t.widget_type == 'checkbox' %} chon{% endif %}">
+              {% if t.widget_type == 'checkbox' %}{{ t }}<label for="{{ t.id_for_label }}">{{ t.label }}</label>
+              {% else %}<label for="{{ t.id_for_label }}">{{ t.label }}</label>{{ t }}{% endif %}
+              {% for e in t.errors %}<span class="loi-truong">{{ e }}</span>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endfor %}
+
+    <div class="nut">
+      <button type="submit" name="hanh_dong" value="xem_truoc">Xem trước</button>
+      <button type="submit" name="hanh_dong" value="xuat" class="chinh">Xuất tệp</button>
+    </div>
+  </form>
+
+  {% if xem %}
+    <section class="khung" aria-label="Xem trước">
+      <span class="xem-truoc-nhan">XEM TRƯỚC — CHƯA PHẢI DỮ LIỆU ĐÃ CHỐT</span>
+      <h2>{{ xem.dinh_nghia.ma }} — {{ xem.dinh_nghia.ten }}</h2>
+      <p>{{ xem.ky.mo_ta }}<br>{{ xem.mo_ta_chot }}<br>
+        Điều kiện lọc: {% if xem.bo_loc.mo_ta %}{{ xem.bo_loc.mo_ta|join:"; " }}{% else %}Không{% endif %}
+        {% if xem.bo_loc.cong %} · Cổng: {% for c in xem.bo_loc.cong %}{{ c.ten }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+      <p><strong>Số dòng sẽ xuất: <span id="so-dong-xem-truoc">{{ xem.so_dong }}</span></strong>
+        {% if xem.so_dong_theo_phan %}(theo phần: {% for k, v in xem.so_dong_theo_phan.items %}{{ k }} {{ v }}{% if not forloop.last %}; {% endif %}{% endfor %}){% endif %}</p>
+      <p class="phu">Xem lúc {{ xem.thoi_diem|date:"H:i:s d/m/Y" }}. Số liệu được tính lại khi bấm “Xuất tệp”; nếu dữ liệu
+        thay đổi trong lúc chờ, bản xuất sẽ khác bản xem trước và màn hình sẽ báo.</p>
+      {% for c in xem.canh_bao %}<div class="thong-bao warning">{{ c }}</div>{% endfor %}
+
+      {% if xem.cot %}
+        {% if xem.so_dong %}
+          <div class="cuon">
+            <table>
+              <thead><tr>{% for t in xem.cot %}<th scope="col">{{ t|linebreaksbr }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for lop, o in xem.dong %}
+                  <tr class="{{ lop }}">{% for chu in o %}<td>{{ chu|linebreaksbr }}</td>{% endfor %}</tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if xem.con_lai %}<p class="phu">… và {{ xem.con_lai }} dòng nữa (chỉ hiện {{ xem.dong|length }} dòng đầu).</p>{% endif %}
+        {% else %}
+          <p>Không có lượt nào trong kỳ theo điều kiện đã chọn.</p>
+        {% endif %}
+        <h2 style="margin-top:12px">Tổng hợp số liệu (xem trước)</h2>
+        <table style="max-width:640px">
+          <tbody>
+            {% for nhan, gia_tri, don_vi in xem.chi_tieu %}
+              <tr><td>{{ nhan }}</td><td class="so">{% if gia_tri is not None %}{{ gia_tri }}{% endif %}</td><td>{{ don_vi }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% elif xem.tong_hop %}
+        <p class="phu">Số liệu của từng nhóm được tính riêng và không cộng gộp giữa các nhóm.</p>
+        <div class="cuon">
+          <table>
+            <thead><tr><th>Nhóm</th><th>Từ kỳ trước (lượt)</th><th>Phát sinh (lượt)</th><th>Hoàn tất (lượt)</th>
+              <th>Chưa hoàn tất tại chốt (lượt)</th><th>Quá hạn (lượt)</th><th>Đối tượng duy nhất (đối tượng)</th></tr></thead>
+            <tbody>
+              {% for n, a in xem.tong_hop.phan_a.items %}
+                <tr><td>{% if n == "CBCS" %}CBCS{% elif n == "KHACH" %}Khách{% else %}Phương tiện{% endif %}</td>
+                  <td class="so">{{ a.tu_ky_truoc }}</td><td class="so">{{ a.phat_sinh }}</td><td class="so">{{ a.hoan_tat }}</td>
+                  <td class="so">{{ a.chua_hoan_tat }}</td><td class="so">{{ a.qua_han }}</td><td class="so">{{ a.doi_tuong_duy_nhat }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="khung" aria-label="Lịch sử xuất">
+    <h2>Lịch sử xuất gần đây của bạn</h2>
+    {% if lich_su %}
+      <div class="cuon">
+        <table>
+          <thead><tr><th>Mã trích xuất</th><th>Sổ</th><th>Định dạng</th><th>Kỳ</th><th>Thời điểm</th><th>Kết quả</th><th>Số dòng</th><th>Tệp</th></tr></thead>
+          <tbody>
+            {% for ls in lich_su %}
+              <tr><td>{{ ls.ma_trich_xuat }}</td><td>{{ ls.ma_so }}</td><td>{{ ls.dinh_dang }}</td>
+                <td>{{ ls.tu|date:"d/m/Y" }} – {{ ls.den|date:"d/m/Y H:i" }}</td><td>{{ ls.bat_dau_luc|date:"H:i:s d/m/Y" }}</td>
+                <td>{{ ls.get_ket_qua_display }}</td><td class="so">{{ ls.so_dong|default_if_none:"" }}</td>
+                <td>{% if ls.ket_qua == "THANH_CONG" %}<a href="{% url 'baocao:tai_tep' ls.ma_tai %}">Tải</a>{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="phu">Chưa có lần xuất nào.</p>
+    {% endif %}
+  </section>
+</main>
+<script>
+(function () {
+  var chonSo = document.getElementById("id_loai_so");
+  var cheDo = document.getElementById("id_che_do_ky");
+  function capNhat() {
+    document.querySelectorAll("fieldset[data-so]").forEach(function (f) {
+      f.classList.toggle("an", chonSo && f.getAttribute("data-so") !== chonSo.value);
+      f.disabled = chonSo && f.getAttribute("data-so") !== chonSo.value;  // không gửi bộ lọc của sổ khác
+    });
+    document.querySelectorAll("[data-che-do]").forEach(function (o) {
+      o.classList.toggle("an", cheDo && o.getAttribute("data-che-do") !== cheDo.value);
+    });
+  }
+  if (chonSo) chonSo.addEventListener("change", capNhat);
+  if (cheDo) cheDo.addEventListener("change", capNhat);
+  capNhat();
+})();
+</script>
+</body>
+</html>

@@ -137,7 +137,7 @@ def _ghi_dau_so(ws, dinh_nghia, ky, chot, bo_loc, tt, so_cot, dong_them=()):
     ghi_o(ws, 1, 1, ch.co_quan_chu_quan.upper() if ch.co_quan_chu_quan else "")
     ghi_o(ws, 1, cot_phai, f"Mã sổ: {dinh_nghia.ma}")
     ghi_o(ws, 2, 1, ch.ten_don_vi.upper(), dam=True)
-    ghi_o(ws, 2, cot_phai, "Mẫu nội bộ — phiên bản 1.0")
+    ghi_o(ws, 2, cot_phai, f"Mẫu nội bộ — phiên bản {dinh_nghia.phien_ban_mau}")
     o = ghi_o(ws, 3, 1, dinh_nghia.ten, dam=True)
     o.font = Font(bold=True, size=14)
     ghi_o(ws, 4, 1, ky.mo_ta())

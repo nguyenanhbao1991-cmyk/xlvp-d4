@@ -136,7 +136,7 @@ def _dau_so(dn, ky, chot, bo_loc, tt, dong_them=()):
         cot=[CotIn("", 68, 0), CotIn("", 32, 0, "phai")],
         dong=[
             [O([ch.co_quan_chu_quan.upper()]), O([f"Mã sổ: {dn.ma}"], can="phai")],
-            [O([ch.ten_don_vi.upper()], dam=True), O(["Mẫu nội bộ — phiên bản 1.0"], can="phai")],
+            [O([ch.ten_don_vi.upper()], dam=True), O([f"Mẫu nội bộ — phiên bản {dn.phien_ban_mau}"], can="phai")],
         ],
         co_tieu_de=False, khung=False, co_chu=10, ten="dau_so",
     )
@@ -217,7 +217,7 @@ def _o_nguoi_ghi(d, thu_tu):
     return O(dong or ["—"])
 
 
-def _cot_va_o(nhom, tt, ky, pl):
+def cot_va_o(nhom, du_lieu_day_du, ky, pl):
     """(cột in, hàm dòng → list[O]) theo report_definitions.md §3.4, §4.4, §5.4."""
     def stt(d):
         # Mã lượt in nhỏ để mã nhiều chữ số không bị ngắt giữa chừng trong cột hẹp.
@@ -269,7 +269,7 @@ def _cot_va_o(nhom, tt, ky, pl):
 
         def dong(d):
             l, k = d.luot, d.luot.khach
-            giay_to = trinh_bay.so_giay_to_hien_thi(k, tt.du_lieu_ca_nhan_day_du)
+            giay_to = trinh_bay.so_giay_to_hien_thi(k, du_lieu_day_du)
             if k.so_giay_to and k.loai_giay_to:
                 giay_to = f"{k.loai_giay_to} {giay_to}"
             return [
@@ -374,7 +374,7 @@ def _phu_luc_noi_dung_dai(pl):
 def tai_lieu_chi_tiet(ket_qua, tt, dinh_dang):
     dn, ky, chot = ket_qua.dinh_nghia, ket_qua.ky, ket_qua.chot
     pl = PhuLucNoiDungDai()
-    cot, ham_dong = _cot_va_o(dn.nhom, tt, ky, pl)
+    cot, ham_dong = cot_va_o(dn.nhom, tt.du_lieu_ca_nhan_day_du, ky, pl)
     dong = []
     for d in ket_qua.dong:
         cac_o = ham_dong(d)
