@@ -33,7 +33,7 @@ $tham_so = @((Join-Path $ThuMucCai "trien_khai\dong_goi.py"), "--python", $Phien
 $cac_tep = @($KemTep | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().Trim('"') } |
     Where-Object { $_ })
 foreach ($tep in $cac_tep) {
-    if ($tep -match "[<>]") { throw "“$tep” là chỗ để điền, hãy thay bằng đường dẫn thật tới tệp bộ cài." }
+    if ($tep -match "[<>]") { throw "Giá trị '$tep' là chỗ để điền: hãy thay bằng đường dẫn thật tới tệp bộ cài." }
     if (-not (Test-Path -LiteralPath $tep -PathType Leaf)) { throw "Không thấy tệp bộ cài: $tep" }
     $tham_so += @("--kem-tep", (Resolve-Path -LiteralPath $tep).Path)
 }

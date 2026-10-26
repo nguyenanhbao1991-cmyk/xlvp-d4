@@ -112,3 +112,19 @@ class DongGoiTest(SimpleTestCase):
             dong_goi.main(["--python", "2.7"])
 
 
+
+
+class KyTuPowerShellTest(SimpleTestCase):
+    """PowerShell coi dấu ngoặc kiểu chữ in giống dấu ngoặc thường: một ký tự như vậy trong chuỗi làm
+    hỏng cú pháp cả script (đã gặp trên Windows thật với dong_goi.ps1)."""
+
+    NGOAC_CHU_IN = "\u201c\u201d\u201e\u2018\u2019\u201a\u201b"
+
+    def test_khong_co_ngoac_chu_in_va_co_bom(self):
+        for tep in sorted((GOC / "trien_khai" / "windows").glob("*.ps1")):
+            with self.subTest(tep.name):
+                du_lieu = tep.read_bytes()
+                self.assertTrue(du_lieu.startswith(b"\xef\xbb\xbf"), "thiếu BOM UTF-8")
+                for so, dong in enumerate(du_lieu.decode("utf-8-sig").splitlines(), 1):
+                    la = [c for c in dong if c in self.NGOAC_CHU_IN]
+                    self.assertFalse(la, f"dòng {so}: {dong.strip()}")
