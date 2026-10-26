@@ -41,9 +41,11 @@ thư viện được tải đúng cho Windows 64-bit, Python của máy chủ).
 2. Lấy mã nguồn đúng phiên bản cần cài (`git clone`, `git checkout <nhánh hoặc thẻ>`), rồi chạy:
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 `
-       -KemTep D:\cai\python-3.12.10-amd64.exe, D:\cai\postgresql-16.6-1-windows-x64.exe
+   powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 -KemTep "D:\cai\python-3.12.10-amd64.exe,D:\cai\postgresql-16.6-1-windows-x64.exe"
    ```
+
+   Thay hai đường dẫn bằng vị trí thật của tệp bộ cài; nhiều tệp ngăn bằng dấu phẩy, **cả danh sách đặt trong một
+   cặp ngoặc kép**. Chưa có bộ cài thì bỏ hẳn phần `-KemTep "..."` và chép bộ cài sang máy chủ riêng.
 
    (Không có PowerShell: `py -3 trien_khai\dong_goi.py --python 3.12 --kem-tep <bộ cài> ...` — chạy được cả
    trên Linux.) Script từ chối đóng gói khi còn thay đổi chưa commit, để gói luôn ứng với một commit cụ thể.

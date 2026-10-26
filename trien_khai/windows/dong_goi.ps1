@@ -10,9 +10,16 @@
   Python với máy chủ.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 `
-      -KemTep D:\cai\python-3.12.10-amd64.exe, D:\cai\postgresql-16.6-1-windows-x64.exe
+  # Thay đường dẫn bằng vị trí thật của các bộ cài; nhiều tệp ngăn bằng dấu phẩy, đặt trong ngoặc kép.
+  powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 -KemTep "D:\cai\python-3.12.10-amd64.exe,D:\cai\postgresql-16.6-1-windows-x64.exe"
+
+.EXAMPLE
+  # Chưa có bộ cài: đóng gói không kèm, chép bộ cài sang máy chủ riêng.
+  powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1
 #>
+# PositionalBinding=$false: giá trị thừa (ví dụ tệp thứ hai sau dấu phẩy) báo lỗi rõ ràng thay vì
+# bị gán nhầm vào -PhienBanPython.
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$PhienBanPython = "3.12",
     [string[]]$KemTep = @(),
@@ -22,7 +29,14 @@ param(
 
 $ThuMucCai = Lay-ThuMucCai ""
 $tham_so = @((Join-Path $ThuMucCai "trien_khai\dong_goi.py"), "--python", $PhienBanPython)
-foreach ($tep in $KemTep) { $tham_so += @("--kem-tep", (Resolve-Path $tep).Path) }
+# Khi gọi bằng "powershell -File", PowerShell không tách danh sách theo dấu phẩy: tự tách ở đây.
+$cac_tep = @($KemTep | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().Trim('"') } |
+    Where-Object { $_ })
+foreach ($tep in $cac_tep) {
+    if ($tep -match "[<>]") { throw "“$tep” là chỗ để điền, hãy thay bằng đường dẫn thật tới tệp bộ cài." }
+    if (-not (Test-Path -LiteralPath $tep -PathType Leaf)) { throw "Không thấy tệp bộ cài: $tep" }
+    $tham_so += @("--kem-tep", (Resolve-Path -LiteralPath $tep).Path)
+}
 if ($ThuMucRa) { $tham_so += @("--ra", $ThuMucRa) }
 Chay "py" (@("-3") + $tham_so)
 Ghi "Chép tệp .zip và .zip.sha256 sang máy chủ nội bộ, rồi làm theo docs\trien_khai_windows.md mục 4."
