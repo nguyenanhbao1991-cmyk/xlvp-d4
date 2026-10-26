@@ -14,6 +14,10 @@
   powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 -KemTep "D:\cai\python-3.12.10-amd64.exe,D:\cai\postgresql-16.6-1-windows-x64.exe"
 
 .EXAMPLE
+  # Tự tìm bộ cài Python 3.12 64-bit và PostgreSQL trong thư mục Downloads của người dùng hiện tại.
+  powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 -TimBoCai
+
+.EXAMPLE
   # Chưa có bộ cài: đóng gói không kèm, chép bộ cài sang máy chủ riêng.
   powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1
 #>
@@ -23,18 +27,38 @@
 param(
     [string]$PhienBanPython = "3.12",
     [string[]]$KemTep = @(),
+    [switch]$TimBoCai,
     [string]$ThuMucRa = ""
 )
 . "$PSScriptRoot\chung.ps1"
 
 $ThuMucCai = Lay-ThuMucCai ""
 $tham_so = @((Join-Path $ThuMucCai "trien_khai\dong_goi.py"), "--python", $PhienBanPython)
+if ($TimBoCai) {
+    $thu_muc_tai = Join-Path $env:USERPROFILE "Downloads"
+    Ghi "Tìm bộ cài trong $thu_muc_tai"
+    foreach ($mau in @("python-$PhienBanPython.*-amd64.exe", "postgresql-*-windows-x64.exe")) {
+        $tim = Get-ChildItem -Path $thu_muc_tai -Filter $mau -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($tim) {
+            Ghi "  Thấy: $($tim.FullName)"
+            $KemTep += $tim.FullName
+        } else {
+            Ghi "  KHÔNG thấy tệp dạng $mau - gói sẽ không kèm bộ cài này, hãy chép riêng sang máy chủ."
+        }
+    }
+}
+
 # Khi gọi bằng "powershell -File", PowerShell không tách danh sách theo dấu phẩy: tự tách ở đây.
 $cac_tep = @($KemTep | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().Trim('"') } |
     Where-Object { $_ })
 foreach ($tep in $cac_tep) {
     if ($tep -match "[<>]") { throw "Giá trị '$tep' là chỗ để điền: hãy thay bằng đường dẫn thật tới tệp bộ cài." }
-    if (-not (Test-Path -LiteralPath $tep -PathType Leaf)) { throw "Không thấy tệp bộ cài: $tep" }
+    if (-not (Test-Path -LiteralPath $tep -PathType Leaf)) {
+        throw ("Không thấy tệp bộ cài: $tep`nKiểm tra tên tệp thật bằng lệnh: " +
+               "Get-ChildItem `$env:USERPROFILE\Downloads\*.exe | Select-Object FullName" +
+               "`nhoặc dùng -TimBoCai để script tự tìm trong thư mục Downloads.")
+    }
     $tham_so += @("--kem-tep", (Resolve-Path -LiteralPath $tep).Path)
 }
 if ($ThuMucRa) { $tham_so += @("--ra", $ThuMucRa) }

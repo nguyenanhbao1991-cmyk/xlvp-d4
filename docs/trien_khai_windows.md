@@ -44,6 +44,9 @@ thư viện được tải đúng cho Windows 64-bit, Python của máy chủ).
    powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 -KemTep "D:\cai\python-3.12.10-amd64.exe,D:\cai\postgresql-16.6-1-windows-x64.exe"
    ```
 
+   Hoặc để script tự tìm hai bộ cài vừa tải trong thư mục Downloads (Python đúng phiên bản 3.12, 64-bit):
+   `powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 -TimBoCai`.
+
    Thay hai đường dẫn bằng vị trí thật của tệp bộ cài; nhiều tệp ngăn bằng dấu phẩy, **cả danh sách đặt trong một
    cặp ngoặc kép**. Chưa có bộ cài thì bỏ hẳn phần `-KemTep "..."` và chép bộ cài sang máy chủ riêng.
 
