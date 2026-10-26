@@ -34,22 +34,37 @@ if (Test-Path (Join-Path $ThuMucCai "MANIFEST-SHA256.txt")) {
 }
 
 # 1. Python và thư viện -------------------------------------------------------
+# Máy chủ chạy bằng LOCAL SERVICE: Python phải cài "for all users" (C:\Program Files\...),
+# không được nằm trong thư mục hồ sơ người dùng. Kiểm tra trước khi tạo .venv.
+$goc_py = Chay "py" @("-$PhienBanPython", "-c", "import sys; print(sys.base_prefix)")
+Ghi "Python $PhienBanPython gốc: $goc_py"
+if ($goc_py -like "*\Users\*") {
+    throw "Python $PhienBanPython đang cài trong hồ sơ người dùng ($goc_py). Gỡ bản này (Settings > Apps), " +
+          "cài lại với tuỳ chọn 'Install Python $PhienBanPython for all users', rồi chạy lại script này."
+}
 $venv = Join-Path $ThuMucCai ".venv"
-if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
+$venv_python = Join-Path $venv "Scripts\python.exe"
+if (Test-Path $venv_python) {
+    # .venv cũ trỏ tới Python gốc đã bị gỡ, hoặc tạo từ Python trong hồ sơ người dùng: tạo lại.
+    # (.venv chỉ chứa thư viện cài từ goi\, không có dữ liệu.)
+    $cu = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { $goc_venv = & $venv_python -c "import sys; print(sys.base_prefix)" 2>$null; $venv_dung = ($LASTEXITCODE -eq 0) }
+    catch { $venv_dung = $false }
+    finally { $ErrorActionPreference = $cu }
+    if (-not $venv_dung -or $goc_venv -like "*\Users\*") {
+        Ghi "Môi trường .venv cũ không dùng được (Python gốc: '$goc_venv'). Xoá và tạo lại."
+        Remove-Item -Path $venv -Recurse -Force
+    }
+}
+if (-not (Test-Path $venv_python)) {
     Ghi "Tạo môi trường Python $PhienBanPython"
     Chay "py" @("-$PhienBanPython", "-m", "venv", $venv)
 }
 $python = Lay-Python $ThuMucCai
 $phien_ban = & $python -c "import sys; print('%d.%d' % sys.version_info[:2])"
 if (@("3.10", "3.11", "3.12", "3.13") -notcontains $phien_ban) {
-    throw "Python $phien_ban chưa được kiểm thử; cần 3.10–3.13."
-}
-# Máy chủ chạy bằng LOCAL SERVICE: Python phải cài "for all users" (C:\Program Files\...),
-# không được nằm trong thư mục hồ sơ người dùng.
-$goc_python = & $python -c "import sys; print(sys.base_prefix)"
-if ($goc_python -like "*\Users\*") {
-    throw "Python đang cài trong hồ sơ người dùng ($goc_python). Cài lại Python với tuỳ chọn " +
-          "'Install for all users', xoá thư mục .venv rồi chạy lại script này."
+    throw "Python trong .venv là '$phien_ban', chưa được kiểm thử; cần 3.10-3.13. Xoá thư mục .venv rồi chạy lại."
 }
 $yeu_cau = Join-Path $ThuMucCai "requirements.txt"
 if ($ThuMucGoi) {
