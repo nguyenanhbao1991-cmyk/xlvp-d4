@@ -11,7 +11,8 @@
 
 .EXAMPLE
   # PowerShell "Run as administrator", trong thư mục mã nguồn:
-  powershell -ExecutionPolicy Bypass -File trien_khai\windows\cai_dat.ps1 -ThuMucGoi .\goi
+  powershell -ExecutionPolicy Bypass -File trien_khai\windows\cai_dat.ps1
+  # Gói ngoại tuyến (có MANIFEST-SHA256.txt) được kiểm tra và dùng thư mục goi tự động.
 #>
 #Requires -RunAsAdministrator
 param(
@@ -24,6 +25,13 @@ param(
 $ThuMucCai = Lay-ThuMucCai $ThuMucCai
 Set-Location $ThuMucCai
 Ghi "Thư mục cài đặt: $ThuMucCai"
+
+# 0. Gói ngoại tuyến: kiểm tra đủ tệp, đúng mã SHA-256, đúng phiên bản Python trước khi cài.
+if (Test-Path (Join-Path $ThuMucCai "MANIFEST-SHA256.txt")) {
+    Ghi "Kiểm tra gói cài đặt"
+    Chay "py" @("-$PhienBanPython", (Join-Path $ThuMucCai "trien_khai\kiem_tra_goi.py"))
+    if (-not $ThuMucGoi -and (Test-Path (Join-Path $ThuMucCai "goi"))) { $ThuMucGoi = Join-Path $ThuMucCai "goi" }
+}
 
 # 1. Python và thư viện -------------------------------------------------------
 $venv = Join-Path $ThuMucCai ".venv"

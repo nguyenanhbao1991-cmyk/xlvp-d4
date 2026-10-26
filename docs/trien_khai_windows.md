@@ -4,7 +4,7 @@
 |---|---|
 | Áp dụng cho | Mã nguồn nhánh `feat/man-hinh-xuat-so` trở về sau |
 | Mô hình | Một máy chủ Windows trong LAN chạy cả PostgreSQL và ứng dụng; người dùng truy cập bằng trình duyệt |
-| Trạng thái | Phần Python đã kiểm thử tự động (trên Linux). **Các script PowerShell chưa được chạy thử trên Windows thật** — chạy thử trên máy thử nghiệm trước khi dùng cho máy chủ thật |
+| Trạng thái | Phần Python (máy chủ, đóng gói, kiểm tra gói) đã kiểm thử tự động trên Linux. **Các script PowerShell chưa được chạy thử trên Windows thật** — chạy thử toàn bộ quy trình trên một máy thử nghiệm trước khi dùng cho máy chủ thật |
 
 ## 1. Thành phần
 
@@ -30,17 +30,48 @@ Trình duyệt (máy trạm LAN) ──HTTP :8000──▶ Waitress (chay_may_ch
 | Quyền | Quản trị máy chủ |
 | Đồng hồ | Đồng bộ với máy chủ thời gian của đơn vị (BR-KY-01): `w32tm /query /status` |
 
-Máy chủ không có Internet: trên một máy Windows **có** Internet, cùng phiên bản Python, chạy
+### 2.1. Đóng gói trên máy có Internet
+
+Máy đóng gói: Windows có Internet, đã cài Git và Python bất kỳ từ 3.10 (không cần trùng phiên bản với máy chủ —
+thư viện được tải đúng cho Windows 64-bit, Python của máy chủ).
+
+1. Tải hai bộ cài từ trang chính thức và kiểm tra chữ ký/mã của nhà phát hành:
+   - Python 3.12, bản "Windows installer (64-bit)" — https://www.python.org/downloads/windows/
+   - PostgreSQL 16 cho Windows x86-64 — https://www.postgresql.org/download/windows/
+2. Lấy mã nguồn đúng phiên bản cần cài (`git clone`, `git checkout <nhánh hoặc thẻ>`), rồi chạy:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1 `
+       -KemTep D:\cai\python-3.12.10-amd64.exe, D:\cai\postgresql-16.6-1-windows-x64.exe
+   ```
+
+   (Không có PowerShell: `py -3 trien_khai\dong_goi.py --python 3.12 --kem-tep <bộ cài> ...` — chạy được cả
+   trên Linux.) Script từ chối đóng gói khi còn thay đổi chưa commit, để gói luôn ứng với một commit cụ thể.
+
+3. Kết quả trong `dist\`:
+
+   | Tệp | Nội dung |
+   |---|---|
+   | `QLCBCS_<ngày>_<commit>_py312.zip` | Mã nguồn (chỉ tệp Git quản lý: không lẫn `qlcbcs.env`, `.venv`, nhật ký), thư mục `goi\` (16 thư viện dạng wheel cho Windows 64-bit, kể cả thư viện phụ thuộc), `cai_dat_he_thong\` (các bộ cài kèm theo), `PHIEN_BAN.txt`, `MANIFEST-SHA256.txt` |
+   | `QLCBCS_...zip.sha256` | Mã SHA-256 của tệp ZIP |
+
+   Trước khi tạo ZIP, script thử cài toàn bộ thư viện chỉ từ thư mục `goi\` (như máy không có mạng) và báo lỗi
+   nếu thiếu thư viện nào. Gói khoảng 25 MB, cộng dung lượng bộ cài kèm theo (PostgreSQL khoảng 300–400 MB).
+
+4. Chép **cả hai tệp** sang máy chủ (USB, ổ mạng nội bộ). Ghi mã SHA-256 vào sổ giao nhận nếu đơn vị yêu cầu.
+
+### 2.2. Kiểm tra trên máy chủ nội bộ
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File trien_khai\windows\tai_goi_ngoai_tuyen.ps1
+Get-FileHash E:\QLCBCS_20261030_abc1234567_py312.zip -Algorithm SHA256   # so với nội dung tệp .sha256
 ```
 
-rồi chép cả thư mục mã nguồn (gồm thư mục `goi` vừa tạo) và hai bộ cài Python, PostgreSQL sang máy chủ.
+Mã khác nhau: **không cài** — tệp bị hỏng hoặc bị sửa khi chép.
 
 ## 3. Cài PostgreSQL và tạo CSDL
 
-1. Chạy bộ cài PostgreSQL, ghi nhớ mật khẩu tài khoản `postgres`.
+1. Giải nén gói (mục 4, bước 1) rồi chạy bộ cài PostgreSQL trong `C:\QLCBCS\cai_dat_he_thong\`, ghi nhớ mật khẩu tài
+   khoản `postgres`. Cài Python từ cùng thư mục, chọn **"Install for all users"** và "Add python.exe to PATH".
 2. Mở "SQL Shell (psql)" bằng tài khoản `postgres`, chạy (thay mật khẩu):
 
    ```sql
@@ -52,16 +83,24 @@ rồi chép cả thư mục mã nguồn (gồm thư mục `goi` vừa tạo) và
 
 ## 4. Cài ứng dụng
 
-1. Chép mã nguồn vào thư mục **không** nằm trong hồ sơ người dùng, ví dụ `C:\QLCBCS`.
-2. Mở PowerShell bằng "Run as administrator":
+1. Giải nén gói vào thư mục **không** nằm trong hồ sơ người dùng và đang trống, ví dụ `C:\QLCBCS`:
+
+   ```powershell
+   Expand-Archive E:\QLCBCS_20261030_abc1234567_py312.zip -DestinationPath C:\QLCBCS
+   Get-ChildItem C:\QLCBCS -Recurse -File | Unblock-File
+   ```
+
+2. (Sau khi đã cài Python, PostgreSQL và tạo CSDL ở mục 3.) Mở PowerShell bằng "Run as administrator":
 
    ```powershell
    cd C:\QLCBCS
-   powershell -ExecutionPolicy Bypass -File trien_khai\windows\cai_dat.ps1 -ThuMucGoi .\goi
+   powershell -ExecutionPolicy Bypass -File trien_khai\windows\cai_dat.ps1
    ```
 
-   (Máy có Internet thì bỏ `-ThuMucGoi .\goi`.) Script:
-   - tạo `.venv` và cài thư viện;
+   Script:
+   - kiểm tra gói: đủ tệp, đúng SHA-256 từng tệp, không có thư viện lạ trong `goi\`, đúng Python 3.12 64-bit —
+     không đạt thì dừng, không cài;
+   - tạo `.venv` và cài thư viện **chỉ từ thư mục `goi\`** (không cần Internet);
    - tạo `qlcbcs.env` với khoá bí mật ngẫu nhiên, hỏi mật khẩu CSDL, điền tên máy và IP vào `QLCBCS_ALLOWED_HOSTS`;
    - chỉ cho Administrators, SYSTEM và LOCAL SERVICE đọc `qlcbcs.env`;
    - chạy `migrate`, `collectstatic`, `check --deploy`;
@@ -117,14 +156,20 @@ Nên thử khôi phục định kỳ trên một máy thử nghiệm.
 
 ## 8. Cập nhật phiên bản
 
-1. Chép mã nguồn mới đè lên `C:\QLCBCS` (giữ `qlcbcs.env`, `.venv`, `nhat_ky`). Máy không có Internet: tạo lại thư mục `goi` bằng `tai_goi_ngoai_tuyen.ps1`.
-2. Chạy:
+1. Đóng gói bản mới như mục 2.1, chép tệp ZIP và tệp `.sha256` sang máy chủ. **Không giải nén đè** lên `C:\QLCBCS`.
+2. Chạy script cập nhật **của bản đang cài**:
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File trien_khai\windows\cap_nhat.ps1 -ThuMucGoi .\goi -ThuMucSaoLuu D:\SaoLuu\QLCBCS
+   powershell -ExecutionPolicy Bypass -File C:\QLCBCS\trien_khai\windows\cap_nhat.ps1 `
+       -TepGoi E:\QLCBCS_20261030_abc1234567_py312.zip -ThuMucSaoLuu D:\SaoLuu\QLCBCS
    ```
 
-   Script sao lưu CSDL trước; nếu sao lưu lỗi thì không cập nhật. Sau đó dừng máy chủ, cài thư viện, `migrate`, `collectstatic`, rồi chạy lại máy chủ (kể cả khi một bước lỗi).
+   Script: đối chiếu SHA-256 tệp ZIP → giải nén vào thư mục tạm và kiểm tra gói → sao lưu CSDL (lỗi thì dừng,
+   không đụng vào hệ thống đang chạy) → dừng máy chủ → thay toàn bộ mã nguồn cũ, giữ `qlcbcs.env`, `.venv`,
+   `nhat_ky`, `sao_luu` → cài thư viện từ gói → `migrate`, `collectstatic` → chạy lại máy chủ. Thay toàn bộ thay vì
+   chép đè để tệp đã bỏ ở bản mới (nhất là thư viện cũ trong `goi\`) không còn sót lại.
+3. Nếu một bước sau khi dừng máy chủ bị lỗi, máy chủ vẫn được chạy lại; xem thông báo lỗi, và khôi phục bản sao
+   lưu vừa tạo (mục 7) nếu `migrate` đã chạy dở.
 
 ## 9. Xử lý sự cố
 

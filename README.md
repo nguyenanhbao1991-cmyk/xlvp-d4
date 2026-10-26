@@ -26,7 +26,8 @@ Excel, Word và PDF**: SO-01 CBCS, SO-02 Khách, SO-03 Phương tiện, SO-04 T�
 ## Triển khai chính thức trên Windows
 
 Xem [`docs/trien_khai_windows.md`](docs/trien_khai_windows.md): Waitress + WhiteNoise, chạy nền bằng Task Scheduler
-(tài khoản LOCAL SERVICE), tường lửa chỉ mở cho mạng con cục bộ, sao lưu `pg_dump` hằng ngày, cài ngoại tuyến.
+(tài khoản LOCAL SERVICE), tường lửa chỉ mở cho mạng con cục bộ, sao lưu `pg_dump` hằng ngày. Máy chủ không có
+Internet: đóng gói trên máy có mạng bằng `trien_khai/dong_goi.py` (hoặc `dong_goi.ps1`), chép tệp ZIP sang và cài.
 Các script nằm trong `trien_khai/windows/`; cấu hình trong `qlcbcs.env` (mẫu: `qlcbcs.env.mau`).
 
 ## Chạy thử (phát triển)
