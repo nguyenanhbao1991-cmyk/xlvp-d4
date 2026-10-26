@@ -141,3 +141,10 @@ class WaitressTest(SimpleTestCase):
 class _KhongChuyenHuong(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
+
+
+class DiaChiGocTest(SimpleTestCase):
+    def test_dia_chi_goc_chuyen_toi_man_hinh_xuat(self):
+        phan_hoi = self.client.get("/")
+        self.assertEqual(phan_hoi.status_code, 302)
+        self.assertEqual(phan_hoi["Location"], "/so/xuat/")
