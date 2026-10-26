@@ -448,12 +448,13 @@ Mỗi mục có **đề xuất mặc định** đã được dùng trong tài li
 | XN-26 | Thông tin phương tiện cần in: lệnh điều xe, hàng hoá, số người. | In "Lý do / lệnh điều xe"; hàng hoá và số người chỉ có ở Excel. | SO-03 |
 | XN-27 | Trình duyệt và máy in đang dùng. | Chromium/Edge/Firefox bản hiện hành; máy in laser A4 đen trắng. | REQ-NFR-04 |
 | XN-28 | Thời hạn lưu nhật ký trích xuất. | Không thấp hơn thời hạn lưu dữ liệu ra/vào. | REQ-NFR-06 |
+| XN-29 | Thư viện và quy trình tạo PDF. Tài liệu trước đây chưa ghi thư viện đã thống nhất. | Tạo PDF trực tiếp bằng ReportLab từ cùng số liệu với Word/Excel, nhúng phông Liberation Serif (SIL OFL) kèm mã nguồn; không chuyển đổi từ Word. Nếu đơn vị yêu cầu PDF phải là bản chuyển từ Word: chuyển bằng LibreOffice chạy không giao diện trên máy chủ (cần cài thêm), như mô tả trong README. | REQ-EXP-04 |
 
 ---
 
 ## 10. Điều kiện để chuyển sang lập trình
 
-1. Mọi mục `XN-01`…`XN-28` có kết quả "Đồng ý" hoặc nội dung thay thế đã cập nhật vào bốn tài liệu.
+1. Mọi mục `XN-01`…`XN-29` có kết quả "Đồng ý" hoặc nội dung thay thế đã cập nhật vào bốn tài liệu.
 2. Đơn vị duyệt bản mẫu bố cục (`report_definitions.md` §7) cho cả bốn sổ.
 3. Ca kiểm thử TC-DOC-01 (rà soát tài liệu) đạt.
 4. Tài liệu được nâng lên phiên bản 1.0 và ghi người duyệt ở bảng dưới.

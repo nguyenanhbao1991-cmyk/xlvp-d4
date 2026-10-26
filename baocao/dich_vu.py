@@ -1,4 +1,4 @@
-"""Điều phối một lần xuất Excel (REQ-GEN-15, BR-TX-01…05).
+"""Điều phối một lần xuất Excel, Word hoặc PDF (REQ-GEN-15, BR-TX-01…05).
 
 Thứ tự:
 1. Kiểm tra quyền (không đạt: từ chối, không cấp mã, không ghi lịch sử).
@@ -12,21 +12,44 @@ import hashlib
 import logging
 from dataclasses import dataclass
 
+from django.core.exceptions import ValidationError
 from django.db import connection, transaction
 from django.utils import timezone
 
-from . import dong_ho, excel, quyen, so_lieu
+from . import bo_cuc, dong_ho, excel, in_pdf, in_word, quyen, so_lieu, trinh_bay
 from .models import BoDemTrichXuat, CauHinhSo, LichSuXuat
 
 logger = logging.getLogger(__name__)
 
 MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MIME = {
+    "xlsx": MIME_XLSX,
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
+TEN_DINH_DANG = {"xlsx": "Excel", "docx": "Word", "pdf": "PDF"}
+
+# Giới hạn bản in Word/PDF của sổ chi tiết (BR-KY-06, XN-18).
+KY_TOI_DA_IN_NGAY = 31
+SO_DONG_TOI_DA_IN = 5000
 
 
 class LoiXuat(Exception):
     def __init__(self, thong_bao, lich_su):
         super().__init__(thong_bao)
         self.lich_su = lich_su
+
+
+class LoiGioiHan(Exception):
+    """Dữ liệu vượt giới hạn của định dạng — từ chối thay vì tạo tệp bị cắt (REQ-EXP-06)."""
+
+
+def kiem_tra_ky_theo_dinh_dang(dinh_nghia, ky, dinh_dang):
+    if dinh_dang in ("docx", "pdf") and dinh_nghia.nhom and ky.den - ky.tu > datetime.timedelta(days=KY_TOI_DA_IN_NGAY):
+        raise ValidationError(
+            f"Bản {TEN_DINH_DANG[dinh_dang]} của sổ chi tiết chỉ lập cho kỳ tối đa {KY_TOI_DA_IN_NGAY} ngày. "
+            "Hãy thu hẹp kỳ hoặc xuất Excel.", code="ky_qua_dai_cho_ban_in",
+        )
 
 
 @dataclass
@@ -46,8 +69,9 @@ def _cap_ma(dinh_nghia, bay_gio):
     return f"{dinh_nghia.ma_gon}-{ngay:%Y%m%d}-{so:04d}"
 
 
-def ten_file(dinh_nghia, ky, ma_trich_xuat):
-    return f"{dinh_nghia.ma_gon}_{dinh_nghia.ten_ngan}_{ky.ngay_dau:%Y%m%d}-{ky.ngay_cuoi:%Y%m%d}_{ma_trich_xuat}.xlsx"
+def ten_file(dinh_nghia, ky, ma_trich_xuat, dinh_dang="xlsx"):
+    return (f"{dinh_nghia.ma_gon}_{dinh_nghia.ten_ngan}_{ky.ngay_dau:%Y%m%d}-{ky.ngay_cuoi:%Y%m%d}_"
+            f"{ma_trich_xuat}.{dinh_dang}")
 
 
 def _mo_doc_nhat_quan():
@@ -67,7 +91,32 @@ def _dieu_kien_loc_json(bo_loc):
     }
 
 
-def xuat_excel(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan_day_du=False, dia_chi_ip=None):
+def xuat_excel(*args, **kwargs):
+    return xuat(*args, dinh_dang="xlsx", **kwargs)
+
+
+def _tao_tep(ket_qua, tt, dinh_dang):
+    """Trả về (nội dung, số dòng dữ liệu)."""
+    if dinh_dang == "xlsx":
+        if isinstance(ket_qua, so_lieu.KetQuaTongHop):
+            wb, so_dong = excel.tao_so_tong_hop(ket_qua, tt)
+        else:
+            wb, so_dong = excel.tao_so_chi_tiet(ket_qua, tt)
+        return excel.luu(wb), so_dong
+    if isinstance(ket_qua, so_lieu.KetQuaSoChiTiet) and len(ket_qua.dong) > SO_DONG_TOI_DA_IN:
+        raise LoiGioiHan(
+            f"Sổ có {len(ket_qua.dong):,} dòng, vượt giới hạn {SO_DONG_TOI_DA_IN:,} dòng của bản "
+            f"{TEN_DINH_DANG[dinh_dang]}. Hãy thu hẹp kỳ hoặc bộ lọc, hoặc xuất Excel.".replace(",", ".")
+        )
+    tai_lieu = bo_cuc.tao_tai_lieu(ket_qua, tt, dinh_dang)
+    noi_dung = in_word.tao_docx(tai_lieu) if dinh_dang == "docx" else in_pdf.tao_pdf(tai_lieu)
+    return noi_dung, tai_lieu.so_dong
+
+
+def xuat(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan_day_du=False, dia_chi_ip=None,
+         dinh_dang="xlsx"):
+    if dinh_dang not in MIME:
+        raise ValueError(dinh_dang)
     quyen.kiem_tra_quyen_so(
         nguoi_dung, dinh_nghia, xuat=True, hien_huy=bo_loc.hien_huy, du_lieu_day_du=du_lieu_ca_nhan_day_du
     )
@@ -76,6 +125,7 @@ def xuat_excel(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan
     lich_su = LichSuXuat.objects.create(
         ma_trich_xuat=_cap_ma(dinh_nghia, bat_dau),
         ma_so=dinh_nghia.ma,
+        dinh_dang=dinh_dang,
         tu=ky.tu,
         den=ky.den,
         bat_dau_luc=bat_dau,
@@ -94,7 +144,7 @@ def xuat_excel(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan
                     c.execute("SELECT 1")  # Ảnh chụp dữ liệu được xác lập tại câu lệnh này.
             thoi_diem = dong_ho.hien_tai()
             chot = min(ky.den, thoi_diem)
-            tt = excel.ThongTinXuat(
+            tt = trinh_bay.ThongTinXuat(
                 ma_trich_xuat=lich_su.ma_trich_xuat,
                 thoi_diem_trich_xuat=thoi_diem,
                 nguoi_xuat=ho_ten_tai_khoan(nguoi_dung),
@@ -105,14 +155,15 @@ def xuat_excel(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan
             nguong = datetime.timedelta(minutes=cau_hinh.nguong_ghi_bo_sung_phut)
             if dinh_nghia.nhom:
                 ket_qua = so_lieu.lap_so_chi_tiet(nguoi_dung, dinh_nghia, ky, chot, bo_loc, nguong, thoi_diem)
-                wb, so_dong = excel.tao_so_chi_tiet(ket_qua, tt)
                 chi_tieu = _json_duoc(ket_qua.chi_tieu)
             else:
                 ket_qua = so_lieu.lap_so_tong_hop(nguoi_dung, dinh_nghia, ky, chot, bo_loc, nguong, thoi_diem)
-                wb, theo_phan = excel.tao_so_tong_hop(ket_qua, tt)
-                so_dong = sum(theo_phan.values())
-                chi_tieu = {"theo_nhom": _json_duoc(ket_qua.phan_a), "so_dong_theo_phan": theo_phan}
-        noi_dung = excel.luu(wb)
+                chi_tieu = {"theo_nhom": _json_duoc(ket_qua.phan_a)}
+        # Tạo tệp sau khi đã đóng giao dịch đọc: số liệu đã nằm trong bộ nhớ.
+        noi_dung, so_dong = _tao_tep(ket_qua, tt, dinh_dang)
+        if isinstance(so_dong, dict):
+            chi_tieu["so_dong_theo_phan"] = so_dong
+            so_dong = sum(so_dong.values())
         if not noi_dung:
             raise excel.LoiDuLieuExcel("Tệp tạo ra rỗng.")
     except Exception as loi:
@@ -123,10 +174,13 @@ def xuat_excel(nguoi_dung, dinh_nghia, ky, bo_loc, nguoi_lap_so, du_lieu_ca_nhan
             ket_thuc_luc=dong_ho.hien_tai(),
         )
         lich_su.refresh_from_db()
-        thong_bao = str(loi) if isinstance(loi, excel.LoiDuLieuExcel) else "Không tạo được tệp Excel."
+        if isinstance(loi, (excel.LoiDuLieuExcel, in_pdf.LoiTaoPdf, LoiGioiHan)):
+            thong_bao = str(loi)
+        else:
+            thong_bao = f"Không tạo được tệp {TEN_DINH_DANG[dinh_dang]}."
         raise LoiXuat(thong_bao, lich_su) from loi
 
-    ten = ten_file(dinh_nghia, ky, lich_su.ma_trich_xuat)
+    ten = ten_file(dinh_nghia, ky, lich_su.ma_trich_xuat, dinh_dang)
     LichSuXuat.objects.filter(pk=lich_su.pk).update(
         ket_qua=LichSuXuat.KetQua.THANH_CONG,
         thoi_diem_trich_xuat=thoi_diem,

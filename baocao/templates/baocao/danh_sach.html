@@ -22,6 +22,8 @@
         <form method="get" action="{% url 'baocao:xuat_excel' so.dinh_nghia.duong_dan %}">
           {{ so.form.as_p }}
           <button type="submit">Xuất Excel</button>
+          <button type="submit" formaction="{% url 'baocao:xuat_word' so.dinh_nghia.duong_dan %}">Xuất Word</button>
+          <button type="submit" formaction="{% url 'baocao:xuat_pdf' so.dinh_nghia.duong_dan %}">Xuất PDF</button>
         </form>
       {% else %}
         <p class="chu-thich">Bạn không có quyền xuất sổ này.</p>

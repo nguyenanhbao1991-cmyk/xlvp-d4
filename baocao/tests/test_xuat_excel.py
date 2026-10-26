@@ -442,7 +442,10 @@ class SoTrongVaLonTest(CoSo):
                 self.assertEqual(ws.cell(h + 1, 1).value, "Không có lượt nào trong kỳ theo điều kiện đã chọn.")
                 tong = {ws.cell(r, 2).value: ws.cell(r, 6).value for r in range(h, ws.max_row + 1)}
                 self.assertEqual(tong["Số lượt trong sổ"], 0)
-                self.assertIn("NGƯỜI LẬP SỔ", {ws.cell(r, 2).value for r in range(h, ws.max_row + 1)})
+                cot_b = {ws.cell(r, 2).value for r in range(h, ws.max_row + 1)}
+                # Khối ký chưa được phê duyệt trong cấu hình thử nên không in (REQ-GEN-17).
+                self.assertNotIn("NGƯỜI LẬP SỔ", cot_b)
+                self.assertIn("— Hết sổ —", cot_b)
         _, wb = self.xuat_ok("tong-hop", tu="2026-01-01T00:00", den="2026-01-02T00:00")
         self.assertEqual(wb["D_Chua_hoan_tat"].cell(hang_d(wb) + 1, 1).value, "Không có lượt chưa hoàn tất.")
         self.assertEqual(list(LichSuXuat.objects.values_list("so_dong", flat=True).order_by("bat_dau_luc", "id")),

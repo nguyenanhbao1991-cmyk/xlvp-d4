@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Mã tài liệu | QLCBCS-RPT-SO |
-| Phiên bản | 0.1 — **Dự thảo để thống nhất** |
+| Phiên bản | 0.2 — **Dự thảo để thống nhất** (bổ sung theo bản triển khai Excel/Word/PDF) |
 | Ngày lập | 26/10/2026 |
 | Tính chất | Mẫu nghiệp vụ nội bộ thiết kế mới; **không** phải biểu mẫu pháp lý (`requirements.md` §2). Mọi tên gọi, chức danh, bố cục là đề xuất, chờ đơn vị xác nhận (`XN-xx`). |
 | Liên quan | [`requirements.md`](requirements.md), [`business_rules.md`](business_rules.md), [`test_plan.md`](test_plan.md) |
@@ -88,6 +88,10 @@ Trên màn hình (chưa trích xuất): `Xem lúc 09:00:12 27/10/2026 — chưa 
 | Ghi chú | Ký hiệu BR-TT-02, cách nhau "; " | Như trên |
 | Số liệu tổng | Số nguyên, phân cách hàng nghìn bằng dấu chấm, kèm đơn vị tính | Kiểu số |
 
+**Nội dung dài trong bản Word/PDF.** Nội dung một ô dài hơn 300 ký tự được in đầy đủ ở "Phụ lục nội dung dài" (PL-n) cuối sổ; ô trong bảng in 100 ký tự đầu kèm "… (đầy đủ: PL-n)". Nhờ vậy một dòng bảng không cao quá một trang (BR-IN-09) mà không cắt bỏ dữ liệu. Excel luôn ghi đủ nội dung trong ô.
+
+**Khổ và hướng giấy của bản Word/PDF** được chọn theo bảng rộng nhất của từng phần: mỗi cột có độ rộng tối thiểu (mm); phần mềm chọn khổ đầu tiên đủ rộng theo thứ tự A4 dọc → A4 ngang → A3 ngang (vùng in sau lề 175 / 262 / 385 mm). Với bộ cột hiện tại: SO-01…SO-03 ra A4 ngang; các phần của SO-04 ra A4 dọc.
+
 ### 2.7. Khối cuối sổ (sổ chi tiết SO-01…SO-03)
 
 Thứ tự cố định (BR-IN-09):
@@ -129,7 +133,9 @@ Kỳ: [Từ, Đến) như đầu sổ — Số liệu tính đến: 00:00:00 ng�
 Số liệu phản ánh dữ liệu đã ghi nhận trong hệ thống tại thời điểm trích xuất.
 ```
 
-**(5) KHỐI KÝ** (đề xuất, `XN-14`)
+**(5) KHỐI KÝ** (chỉ in khi đơn vị đã phê duyệt cấu hình, `XN-14`)
+
+Phần mềm chỉ in khối ký khi quản trị bật "Khối ký đã được đơn vị phê duyệt" và ghi căn cứ phê duyệt. Danh sách ô ký (chức danh, ô nào ghi tên người lập sổ, áp dụng cho sổ nào) và việc điền sẵn ngày ký lấy từ cấu hình đó. Chưa phê duyệt thì mọi định dạng (Excel, Word, PDF) chỉ in "— Hết sổ —", không in mẫu ký mặc định. Bố cục dưới đây là đề xuất cấu hình ban đầu.
 
 ```
                                                    [Địa danh], ngày ..... tháng ..... năm ..........
@@ -189,19 +195,19 @@ Không có dòng riêng ngoài mục 2.3. Điều kiện lọc có thể gồm: 
 
 | TT | Mã cột | Tiêu đề cột | Nội dung và ý nghĩa | Độ rộng (%) |
 |---|---|---|---|---|
-| 1 | SO1-C01 | STT | Số thứ tự liên tục toàn sổ (BR-IN-07); dòng huỷ: "—" | 3 |
+| 1 | SO1-C01 | STT | Dòng 1: số thứ tự liên tục toàn sổ (BR-IN-07), dòng huỷ "—"; dòng 2: "#<mã lượt>" để đối chiếu với bản ghi gốc (in cỡ 7,5 pt để mã nhiều chữ số không bị ngắt) | 6 |
 | 2 | SO1-C02 | Mã CBCS | Mã CBCS nội bộ (định danh, BR-DN-01) | 6 |
-| 3 | SO1-C03 | Họ và tên | Dòng 1: họ tên; dòng 2: cấp bậc, chức vụ (`XN-06`) | 13 |
-| 4 | SO1-C04 | Đơn vị / bộ phận | Đơn vị/bộ phận công tác tại thời điểm mở lượt | 10 |
-| 5 | SO1-C05 | Chiều lượt | "Ra–Vào" hoặc "Vào–Ra" (BR-LT-02) | 5 |
+| 3 | SO1-C03 | Họ và tên | Dòng 1: họ tên; dòng 2: cấp bậc, chức vụ (`XN-06`) | 11 |
+| 4 | SO1-C04 | Đơn vị / bộ phận | Đơn vị/bộ phận công tác tại thời điểm mở lượt | 9 |
+| 5 | SO1-C05 | Chiều lượt | "Ra–Vào" hoặc "Vào–Ra" (BR-LT-02) | 6 |
 | 6 | SO1-C06 | Ra | Thời điểm, cổng, chú thích kỳ của sự kiện Ra (mục 2.6) | 9 |
 | 7 | SO1-C07 | Vào | Thời điểm, cổng, chú thích kỳ của sự kiện Vào | 9 |
 | 8 | SO1-C08 | Thời lượng (giờ:phút) | Khoảng giữa hai sự kiện (BR-ND-05); với Ra–Vào là thời gian vắng mặt, với Vào–Ra là thời gian có mặt | 5 |
-| 9 | SO1-C09 | Lý do / nội dung | Theo danh mục `XN-07` và ghi chú lý do; dòng 2: "Hạn về hh:mm dd/mm" nếu có | 11 |
-| 10 | SO1-C10 | Phương tiện đi kèm | Biển số phương tiện liên kết (BR-LT-05); không có: "—" | 7 |
+| 9 | SO1-C09 | Lý do / nội dung | Theo danh mục `XN-07` và ghi chú lý do; dòng 2: "Hạn về hh:mm dd/mm" nếu có | 10 |
+| 10 | SO1-C10 | Phương tiện đi kèm | Biển số phương tiện liên kết (BR-LT-05); không có: "—" | 8 |
 | 11 | SO1-C11 | Người ghi nhận | Dòng 1 "R: <người ghi sự kiện Ra>"; dòng 2 "V: <người ghi sự kiện Vào>" (họ tên viết tắt hoặc tên đăng nhập) | 8 |
 | 12 | SO1-C12 | Trạng thái | Nhãn BR-TT-01 | 7 |
-| 13 | SO1-C13 | Ghi chú | Ký hiệu BR-TT-02 | 7 |
+| 13 | SO1-C13 | Ghi chú | Ký hiệu BR-TT-02 | 6 |
 | | | | **Tổng** | **100** |
 
 Thứ tự "Ra" trước "Vào" vì phần lớn lượt CBCS là Ra–Vào (đề xuất, `XN-05`). Với lượt Vào–Ra, cột "Chiều lượt" giúp đọc đúng trình tự.
@@ -285,10 +291,10 @@ Thêm dòng "Dữ liệu cá nhân: số giấy tờ đã che" (hoặc "hiển t
 
 | TT | Mã cột | Tiêu đề cột | Nội dung và ý nghĩa | Độ rộng (%) |
 |---|---|---|---|---|
-| 1 | SO2-C01 | STT | Như SO-01 | 3 |
-| 2 | SO2-C02 | Khách | Dòng 1: họ tên; dòng 2: cơ quan/địa chỉ; dòng 3 (nếu có): "Đoàn <mã đoàn>" | 15 |
+| 1 | SO2-C01 | STT | Như SO-01 | 6 |
+| 2 | SO2-C02 | Khách | Dòng 1: họ tên; dòng 2: cơ quan/địa chỉ; dòng 3 (nếu có): "Đoàn <mã đoàn>" | 13 |
 | 3 | SO2-C03 | Giấy tờ | Loại và số giấy tờ (đã che theo BR-BM-01); không có: "Không xuất trình" | 9 |
-| 4 | SO2-C04 | Mục đích | Nội dung làm việc | 10 |
+| 4 | SO2-C04 | Mục đích | Nội dung làm việc | 9 |
 | 5 | SO2-C05 | Người / bộ phận tiếp | Họ tên CBCS tiếp (kèm mã) hoặc bộ phận | 10 |
 | 6 | SO2-C06 | Số thẻ | Số thẻ khách đã cấp; không cấp: "—" | 4 |
 | 7 | SO2-C07 | Vào | Thời điểm, cổng, chú thích kỳ của sự kiện Vào | 9 |
@@ -359,16 +365,16 @@ Như SO-01. Khối "Thông tin trích xuất" ghi thêm mức hiển thị dữ 
 
 | TT | Mã cột | Tiêu đề cột | Nội dung và ý nghĩa | Độ rộng (%) |
 |---|---|---|---|---|
-| 1 | SO3-C01 | STT | Như SO-01 | 3 |
+| 1 | SO3-C01 | STT | Như SO-01 | 6 |
 | 2 | SO3-C02 | Biển số | Như đã ghi nhận; xe không biển: "Không biển — <mã tạm>" | 8 |
 | 3 | SO3-C03 | Loại phương tiện | Ô tô, xe máy, xe chuyên dùng, … (danh mục) | 7 |
-| 4 | SO3-C04 | Nguồn | "Cơ quan"; "CBCS — <họ tên>"; "Khách — <họ tên>"; "Khác — <ghi rõ>" | 9 |
-| 5 | SO3-C05 | Người điều khiển | Họ tên (kèm mã CBCS nếu có) (REQ-SO3-03) | 13 |
-| 6 | SO3-C06 | Chiều lượt | "Ra–Vào" / "Vào–Ra" | 5 |
+| 4 | SO3-C04 | Nguồn | "Cơ quan"; "CBCS — <họ tên>"; "Khách — <họ tên>"; "Khác — <ghi rõ>" | 8 |
+| 5 | SO3-C05 | Người điều khiển | Họ tên (kèm mã CBCS nếu có) (REQ-SO3-03) | 11 |
+| 6 | SO3-C06 | Chiều lượt | "Ra–Vào" / "Vào–Ra" | 6 |
 | 7 | SO3-C07 | Ra | Thời điểm, cổng, chú thích kỳ | 9 |
 | 8 | SO3-C08 | Vào | Thời điểm, cổng, chú thích kỳ | 9 |
 | 9 | SO3-C09 | Thời lượng (giờ:phút) | BR-ND-05 | 5 |
-| 10 | SO3-C10 | Lý do / lệnh điều xe | Lý do; dòng 2: số lệnh điều xe, hạn về (`XN-26`) | 11 |
+| 10 | SO3-C10 | Lý do / lệnh điều xe | Lý do; dòng 2: số lệnh điều xe, hạn về (`XN-26`) | 10 |
 | 11 | SO3-C11 | Người ghi nhận | "R: …" / "V: …" | 7 |
 | 12 | SO3-C12 | Trạng thái | Nhãn BR-TT-01 | 7 |
 | 13 | SO3-C13 | Ghi chú | Ký hiệu BR-TT-02 | 7 |

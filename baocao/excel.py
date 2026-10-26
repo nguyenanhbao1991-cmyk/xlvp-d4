@@ -7,21 +7,19 @@ Nguyên tắc:
 * Không cắt dữ liệu: chuỗi vượt giới hạn ô của Excel làm việc xuất thất bại.
 * Giá trị tĩnh, không dùng công thức.
 """
-import datetime
 import io
 from copy import copy
 from dataclasses import dataclass
 
 from openpyxl import Workbook
-from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.properties import PageSetupProperties
 from django.utils import timezone
 
-from ravao.models import Luot, chuan_hoa_ma
+from ravao.models import Luot
 
-from . import quyen, so_lieu
+from . import so_lieu, trinh_bay
 
 GIOI_HAN_KY_TU_O = 32767
 GIOI_HAN_DONG = 1_048_576
@@ -35,14 +33,6 @@ DINH_DANG_VAN_BAN = "@"
 
 MM_SANG_INCH = 1 / 25.4
 
-CHU_GIAI = [
-    "ĐC(n) — dòng có đính chính, xem sheet Dinh_chinh mục (n).",
-    "GBS — sự kiện được ghi bổ sung muộn hơn ngưỡng quy định.",
-    "Chồng lượt — đối tượng có lượt mở chồng thời gian.",
-    "Lỗi thời gian — thời điểm đóng sớm hơn thời điểm mở; không tính thời lượng.",
-    "(từ kỳ trước) — sự kiện xảy ra trước kỳ; (sau kỳ) — sự kiện xảy ra sau thời điểm chốt.",
-    "Thời lượng có “Là thời lượng tối thiểu = Có” là thời lượng tính đến thời điểm chốt của lượt chưa hoàn tất.",
-]
 
 _VIEN = Side(style="thin", color="000000")
 _KHUNG = Border(left=_VIEN, right=_VIEN, top=_VIEN, bottom=_VIEN)
@@ -63,7 +53,7 @@ def van_ban_an_toan(gia_tri):
     chuoi = str(gia_tri)
     # Ký tự điều khiển không hợp lệ trong XML được thay bằng U+FFFD để
     # người đọc thấy có ký tự đã bị thay, thay vì âm thầm xoá.
-    chuoi = ILLEGAL_CHARACTERS_RE.sub("�", chuoi)
+    chuoi = trinh_bay.lam_sach(chuoi)
     if len(chuoi) > GIOI_HAN_KY_TU_O:
         raise LoiDuLieuExcel(
             f"Nội dung dài {len(chuoi)} ký tự, vượt giới hạn {GIOI_HAN_KY_TU_O} ký tự của một ô Excel."
@@ -132,27 +122,12 @@ def do_dai_hien_thi(gia_tri, kieu):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class ThongTinXuat:
-    ma_trich_xuat: str
-    thoi_diem_trich_xuat: datetime.datetime
-    nguoi_xuat: str  # "Họ tên (tài khoản: x)"
-    nguoi_lap_so: str  # rỗng = để trống, ký tay
-    cau_hinh: object
-    du_lieu_ca_nhan_day_du: bool = False
 
 
-def _dt(gia_tri):
-    return timezone.localtime(gia_tri).strftime("%H:%M:%S ngày %d/%m/%Y")
 
 
-def mo_ta_chot(ky, chot):
-    chu = f"Số liệu tính đến: {_dt(chot)}"
-    return chu + (" (kỳ chưa kết thúc)" if chot < ky.den else "")
 
 
-def mo_ta_cong(bo_loc):
-    return "Điểm kiểm soát: " + (", ".join(c.ten for c in bo_loc.cong) if bo_loc.cong else "Tất cả các cổng")
 
 
 def _ghi_dau_so(ws, dinh_nghia, ky, chot, bo_loc, tt, so_cot, dong_them=()):
@@ -167,9 +142,9 @@ def _ghi_dau_so(ws, dinh_nghia, ky, chot, bo_loc, tt, so_cot, dong_them=()):
     o.font = Font(bold=True, size=14)
     ghi_o(ws, 4, 1, ky.mo_ta())
     loc = bo_loc.mo_ta()
-    ghi_o(ws, 5, 1, mo_ta_cong(bo_loc) + "    Điều kiện lọc: " + ("; ".join(loc) if loc else "Không"))
-    ghi_o(ws, 6, 1, mo_ta_chot(ky, chot))
-    ghi_o(ws, 7, 1, f"Thời điểm trích xuất: {_dt(tt.thoi_diem_trich_xuat)} (giờ máy chủ)    "
+    ghi_o(ws, 5, 1, trinh_bay.mo_ta_cong(bo_loc) + "    Điều kiện lọc: " + ("; ".join(loc) if loc else "Không"))
+    ghi_o(ws, 6, 1, trinh_bay.mo_ta_chot(ky, chot))
+    ghi_o(ws, 7, 1, f"Thời điểm trích xuất: {trinh_bay.thoi_diem_day_du(tt.thoi_diem_trich_xuat)} (giờ máy chủ)    "
                     f"Mã trích xuất: {tt.ma_trich_xuat}")
     ghi_o(ws, 8, 1, f"Người xuất: {tt.nguoi_xuat}    Người lập sổ: {tt.nguoi_lap_so or '(để trống — ký tay)'}")
     hang = 9
@@ -254,20 +229,20 @@ def _ghi_cap(ws, hang, nhan, gia_tri, kieu="so", cot_nhan=2, cot_gia_tri=None, d
         ghi_o(ws, hang, cot_gia_tri + 1, don_vi)
 
 
-def _ghi_khoi_ky(ws, hang, tt, cot_phai):
-    ch = tt.cau_hinh
-    dia_danh = ch.dia_danh or "..........."
-    ghi_o(ws, hang, cot_phai, f"{dia_danh}, ngày ..... tháng ..... năm ..........")
-    hang += 1
-    ghi_o(ws, hang, 2, "NGƯỜI LẬP SỔ", dam=True)
-    ghi_o(ws, hang, cot_phai, (ch.chuc_danh_xac_nhan or "").upper(), dam=True)
-    hang += 1
-    ghi_o(ws, hang, 2, "(Ký, ghi rõ họ tên)")
-    ghi_o(ws, hang, cot_phai, "(Ký, ghi rõ họ tên)")
-    hang += 4
-    ghi_o(ws, hang, 2, tt.nguoi_lap_so or "...............................")
-    ghi_o(ws, hang, cot_phai, "...............................")
-    hang += 2
+def _ghi_khoi_ky(ws, hang, tt, cot_phai, ma_so):
+    """Khối ký theo cấu hình đã phê duyệt; chưa phê duyệt thì chỉ ghi "— Hết sổ —"."""
+    khoi = trinh_bay.khoi_ky(tt.cau_hinh, ma_so, tt)
+    if khoi:
+        ghi_o(ws, hang, cot_phai, khoi.dong_ngay)
+        hang += 1
+        # Ô ký đặt cách đều từ cột 2 đến cột phải.
+        buoc = max((cot_phai - 2) // max(len(khoi.o) - 1, 1), 1)
+        cot = [2 + i * buoc for i in range(len(khoi.o))]
+        for c, o in zip(cot, khoi.o):
+            ghi_o(ws, hang, c, o.chuc_danh, dam=True)
+            ghi_o(ws, hang + 1, c, "(Ký, ghi rõ họ tên)")
+            ghi_o(ws, hang + 5, c, o.ten or "...............................")
+        hang += 7
     ghi_o(ws, hang, 2, "— Hết sổ —")
     return hang
 
@@ -277,11 +252,6 @@ def _ghi_khoi_ky(ws, hang, tt, cot_phai):
 # ---------------------------------------------------------------------------
 
 
-def che_so_giay_to(so):
-    """Giữ 4 ký tự cuối (BR-BM-01)."""
-    if not so:
-        return so
-    return "*" * max(len(so) - 4, 0) + so[-4:] if len(so) > 4 else "*" * len(so)
 
 
 def _sap_cot(cot):
@@ -329,14 +299,6 @@ def _stt(d):
     return d.stt if d.stt is not None else "—"
 
 
-def _ten_nguon(pt):
-    if pt.nguon == pt.Nguon.CBCS and pt.nguon_can_bo:
-        return f"CBCS — {pt.nguon_can_bo.ho_ten}"
-    if pt.nguon == pt.Nguon.KHACH and pt.nguon_khach:
-        return f"Khách — {pt.nguon_khach.ho_ten}"
-    if pt.nguon == pt.Nguon.KHAC and pt.nguon_ghi_chu:
-        return f"Khác — {pt.nguon_ghi_chu}"
-    return pt.get_nguon_display()
 
 
 def cac_cot(nhom, du_lieu_ca_nhan_day_du):
@@ -364,11 +326,7 @@ def cac_cot(nhom, du_lieu_ca_nhan_day_du):
         ])
     if nhom == Luot.Nhom.KHACH:
         def so_giay_to(d):
-            khach = d.luot.khach
-            if not khach.so_giay_to:
-                return "Không xuất trình"
-            # Che trên số đã chuẩn hoá để khoảng trắng, dấu chấm không làm lộ thêm chữ số.
-            return khach.so_giay_to if du_lieu_ca_nhan_day_du else che_so_giay_to(khach.so_giay_to_chuan)
+            return trinh_bay.so_giay_to_hien_thi(d.luot.khach, du_lieu_ca_nhan_day_du)
 
         return _sap_cot([
             stt,
@@ -395,7 +353,7 @@ def cac_cot(nhom, du_lieu_ca_nhan_day_du):
         Cot("Biển số", lambda d: d.luot.phuong_tien.hien_thi_bien_so, "ma", 12),
         Cot("Biển số chuẩn hoá", lambda d: d.luot.phuong_tien.bien_so_chuan, "ma", in_an=False),
         Cot("Loại phương tiện", lambda d: d.luot.phuong_tien.loai),
-        Cot("Nguồn", lambda d: _ten_nguon(d.luot.phuong_tien), rong_toi_thieu=12),
+        Cot("Nguồn", lambda d: trinh_bay.ten_nguon(d.luot.phuong_tien), rong_toi_thieu=12),
         Cot("Người điều khiển", lambda d: so_lieu.ten_can_bo(d.luot.nguoi_dieu_khien_can_bo)
             or d.luot.nguoi_dieu_khien, rong_toi_thieu=16),
         Cot("Chiều lượt", lambda d: d.luot.get_chieu_display()),
@@ -416,65 +374,12 @@ def cac_cot(nhom, du_lieu_ca_nhan_day_du):
 # ---------------------------------------------------------------------------
 
 
-_NHAN_DOI_TUONG = {
-    Luot.Nhom.CBCS: ("Số CBCS duy nhất", "đối tượng"),
-    Luot.Nhom.KHACH: ("Số khách có định danh duy nhất", "đối tượng"),
-    Luot.Nhom.PHUONG_TIEN: ("Số phương tiện có biển duy nhất", "đối tượng"),
-}
-_NHAN_KHONG_DINH_DANH = {
-    Luot.Nhom.KHACH: "Số lượt khách không định danh (không cộng vào số khách duy nhất)",
-    Luot.Nhom.PHUONG_TIEN: "Số lượt phương tiện không biển (không cộng vào số phương tiện duy nhất)",
-}
 
 
-def _dong_chi_tieu(ct, nhom):
-    """Các dòng của khối "Tổng hợp số liệu" (report_definitions.md §2.7)."""
-    dong = [
-        ("Số lượt trong sổ", ct["so_luot"], "lượt"),
-        ("— Từ kỳ trước", ct["tu_ky_truoc"], "lượt"),
-        ("— Phát sinh trong kỳ", ct["phat_sinh"], "lượt"),
-        ("Hoàn tất trong kỳ", ct["hoan_tat"], "lượt"),
-        ("Chưa hoàn tất tại thời điểm chốt", ct["chua_hoan_tat"], "lượt"),
-        ("— Đang mở", ct["dang_mo"], "lượt"),
-        ("— Hoàn tất sau kỳ", ct["hoan_tat_sau_ky"], "lượt"),
-        ("— Trong đó quá hạn", ct["qua_han"], "lượt"),
-        (_NHAN_DOI_TUONG[nhom][0], ct["doi_tuong_duy_nhat"], "đối tượng"),
-    ]
-    if nhom in _NHAN_KHONG_DINH_DANH:
-        dong.append((_NHAN_KHONG_DINH_DANH[nhom], ct["khong_dinh_danh"], "lượt"))
-    if nhom == Luot.Nhom.KHACH:
-        dong += [("Số đoàn", ct["so_doan"], "đoàn"),
-                 ("Thẻ khách chưa thu hồi tại thời điểm chốt", ct["the_chua_thu_hoi"], "thẻ")]
-    for khoa, tieu_de in (("theo_chieu", "Theo chiều lượt"), ("theo_ly_do", "Theo lý do"),
-                          ("theo_loai", "Theo loại phương tiện"), ("theo_nguon", "Theo nguồn")):
-        if khoa in ct:
-            dong.append((tieu_de, None, ""))
-            dong += [(f"— {k}", v, "lượt") for k, v in ct[khoa].items()]
-    dong += [
-        ("Số lượt có đính chính", ct["luot_dinh_chinh"], "lượt"),
-        ("Số bản ghi đã huỷ trong kỳ (không tính vào các chỉ tiêu trên)", ct["ban_ghi_huy"], "bản ghi"),
-    ]
-    return dong
 
 
-def _doi_tuong_dinh_chinh(d):
-    l = d.luot
-    if l.nhom == Luot.Nhom.CBCS:
-        return f"{l.can_bo.ma} {l.can_bo.ho_ten}"
-    if l.nhom == Luot.Nhom.KHACH:
-        return l.khach.ho_ten
-    return l.phuong_tien.hien_thi_bien_so
 
 
-def _nhan_truong(truong):
-    if truong == "khach.so_giay_to":
-        return "Số giấy tờ"
-    if truong == "phuong_tien.bien_so":
-        return "Biển số"
-    try:
-        return str(Luot._meta.get_field(truong).verbose_name).capitalize()
-    except Exception:
-        return truong
 
 
 def _ghi_sheet_dinh_chinh(wb, ket_qua, tt):
@@ -483,20 +388,17 @@ def _ghi_sheet_dinh_chinh(wb, ket_qua, tt):
     ghi_o(ws, 2, 1, ket_qua.ky.mo_ta())
 
     def gia_tri(dc, cu):
-        v = dc.gia_tri_cu if cu else dc.gia_tri_moi
-        if dc.la_du_lieu_ca_nhan and not tt.du_lieu_ca_nhan_day_du:
-            return che_so_giay_to(chuan_hoa_ma(v))
-        return v
+        return trinh_bay.gia_tri_dinh_chinh(dc, cu, tt.du_lieu_ca_nhan_day_du)
 
     cot = [
         Cot("(n)", lambda m: m[0], "so"),
         Cot("STT dòng", lambda m: m[1] if m[1] is not None else "— (đã huỷ)", "so"),
-        Cot("Đối tượng", lambda m: _doi_tuong_dinh_chinh(m[2]), rong_toi_thieu=16),
-        Cot("Trường", lambda m: _nhan_truong(m[3].truong)),
+        Cot("Đối tượng", lambda m: trinh_bay.doi_tuong_dinh_chinh(m[2]), rong_toi_thieu=16),
+        Cot("Trường", lambda m: trinh_bay.nhan_truong(m[3].truong)),
         Cot("Giá trị cũ", lambda m: gia_tri(m[3], True), "text", 12, 50),
         Cot("Giá trị mới", lambda m: gia_tri(m[3], False), "text", 12, 50),
         Cot("Lý do", lambda m: m[3].ly_do, rong_toi_da=50),
-        Cot("Người đính chính", lambda m: _ho_ten_tai_khoan(m[3].nguoi)),
+        Cot("Người đính chính", lambda m: trinh_bay.ho_ten_tai_khoan(m[3].nguoi)),
         Cot("Thời điểm đính chính", lambda m: m[3].thoi_diem, "ngay_gio", 19),
     ]
     if ket_qua.phu_luc:
@@ -508,8 +410,6 @@ def _ghi_sheet_dinh_chinh(wb, ket_qua, tt):
                   so_cot=len(cot), hang_cuoi=hang)
 
 
-def _ho_ten_tai_khoan(nguoi):
-    return f"{quyen.ho_ten(nguoi)} ({nguoi.get_username()})"
 
 
 def _ghi_sheet_thong_tin(wb, dinh_nghia, ky, chot, bo_loc, tt, so_dong, ghi_chu_them=()):
@@ -527,7 +427,7 @@ def _ghi_sheet_thong_tin(wb, dinh_nghia, ky, chot, bo_loc, tt, so_dong, ghi_chu_
         ("Thời điểm trích xuất (giờ máy chủ)", tt.thoi_diem_trich_xuat, "ngay_gio"),
         ("Người xuất", tt.nguoi_xuat, "text"),
         ("Người lập sổ", tt.nguoi_lap_so or "(để trống — ký tay)", "text"),
-        ("Điểm kiểm soát", mo_ta_cong(bo_loc).split(": ", 1)[1], "text"),
+        ("Điểm kiểm soát", trinh_bay.mo_ta_cong(bo_loc).split(": ", 1)[1], "text"),
         ("Điều kiện lọc", "; ".join(loc) if loc else "Không", "text"),
         ("Hiện bản ghi đã huỷ", "Có" if bo_loc.hien_huy else "Không", "text"),
         ("Dữ liệu cá nhân", "Hiển thị đầy đủ" if tt.du_lieu_ca_nhan_day_du else "Số giấy tờ đã che", "text"),
@@ -538,7 +438,7 @@ def _ghi_sheet_thong_tin(wb, dinh_nghia, ky, chot, bo_loc, tt, so_dong, ghi_chu_
         ghi_o(ws, i, 2, gia_tri, kieu)
     hang = len(muc) + 2
     ghi_o(ws, hang, 1, "Chú giải ký hiệu", dam=True)
-    for chu in CHU_GIAI:
+    for chu in trinh_bay.CHU_GIAI:
         hang += 1
         ghi_o(ws, hang, 1, chu)
     for chu in (
@@ -574,9 +474,9 @@ def tao_so_chi_tiet(ket_qua, tt):
         ghi_o(ws, hang, 1, "Không có lượt nào trong kỳ theo điều kiện đã chọn.")
 
     hang += 2
-    ghi_o(ws, hang, 1, f"TỔNG HỢP SỐ LIỆU (tại thời điểm chốt {_dt(ket_qua.chot)})", dam=True)
+    ghi_o(ws, hang, 1, f"TỔNG HỢP SỐ LIỆU (tại thời điểm chốt {trinh_bay.thoi_diem_day_du(ket_qua.chot)})", dam=True)
     ct = ket_qua.chi_tieu
-    for nhan, gia_tri, don_vi in _dong_chi_tieu(ct, nhom):
+    for nhan, gia_tri, don_vi in trinh_bay.dong_chi_tieu(ct, nhom):
         hang += 1
         _ghi_cap(ws, hang, nhan, gia_tri, don_vi=don_vi) if gia_tri is not None else ghi_o(ws, hang, 2, nhan)
     hang += 1
@@ -587,7 +487,7 @@ def tao_so_chi_tiet(ket_qua, tt):
         ghi_o(ws, hang, 2, "Số liệu theo điều kiện lọc đã nêu ở đầu sổ.")
     hang += 1
     ghi_o(ws, hang, 2, "Chú giải ký hiệu và phụ lục đính chính: xem sheet Thong_tin_trich_xuat và Dinh_chinh.")
-    hang = _ghi_khoi_ky(ws, hang + 2, tt, max(cot_in - 5, 4))
+    hang = _ghi_khoi_ky(ws, hang + 2, tt, max(cot_in - 5, 4), dn.ma)
 
     _thiet_lap_in(ws, dn, tt, ngang=True, hang_tieu_de=hang_tieu_de, so_cot=cot_in, hang_cuoi=hang)
     _ghi_sheet_dinh_chinh(wb, ket_qua, tt)
@@ -600,12 +500,11 @@ def tao_so_chi_tiet(ket_qua, tt):
 # Sổ tổng hợp
 # ---------------------------------------------------------------------------
 
-_TEN_NHOM = {Luot.Nhom.CBCS: "CBCS", Luot.Nhom.KHACH: "Khách", Luot.Nhom.PHUONG_TIEN: "Phương tiện"}
 
 
 def _dau_phan(ws, ket_qua, tt, tieu_de, so_cot, ghi_chu=()):
     hang = _ghi_dau_so(ws, ket_qua.dinh_nghia, ket_qua.ky, ket_qua.chot, ket_qua.bo_loc, tt, so_cot,
-                       ["Nhóm đối tượng: " + ", ".join(_TEN_NHOM[n] for n in ket_qua.nhom),
+                       ["Nhóm đối tượng: " + ", ".join(trinh_bay.TEN_NHOM[n] for n in ket_qua.nhom),
                         "Phân bổ: theo ngày lịch"])
     ghi_o(ws, hang, 1, tieu_de, dam=True)
     for chu in ghi_chu:
@@ -625,7 +524,7 @@ def tao_so_tong_hop(ket_qua, tt):
     ws = wb.active
     ws.title = "A_Chi_tieu"
     cot_a = [
-        Cot("Nhóm đối tượng", lambda m: _TEN_NHOM[m[0]], rong_toi_thieu=14),
+        Cot("Nhóm đối tượng", lambda m: trinh_bay.TEN_NHOM[m[0]], rong_toi_thieu=14),
         Cot("SỐ LƯỢT — Từ kỳ trước (lượt)", lambda m: m[1]["tu_ky_truoc"], "so", 12, 14),
         Cot("SỐ LƯỢT — Phát sinh trong kỳ (lượt)", lambda m: m[1]["phat_sinh"], "so", 12, 14),
         Cot("SỐ LƯỢT — Hoàn tất trong kỳ (lượt)", lambda m: m[1]["hoan_tat"], "so", 12, 14),
@@ -643,7 +542,7 @@ def tao_so_tong_hop(ket_qua, tt):
     dong_a = [(n, ket_qua.phan_a[n]) for n in ket_qua.nhom]
     hang_cuoi = _ghi_bang_hon_hop(ws, hang, cot_a, dong_a)
     ghi_o(ws, hang_cuoi + 1, 1, "(Không có dòng tổng cộng giữa các nhóm.)")
-    hang_cuoi = _ghi_khoi_ky(ws, hang_cuoi + 3, tt, max(len(cot_a) - 4, 4))
+    hang_cuoi = _ghi_khoi_ky(ws, hang_cuoi + 3, tt, max(len(cot_a) - 4, 4), dn.ma)
     _thiet_lap_in(ws, dn, tt, ngang=False, hang_tieu_de=hang, so_cot=len(cot_a), hang_cuoi=hang_cuoi)
     so_dong["A"] = len(dong_a)
 
@@ -676,8 +575,8 @@ def tao_so_tong_hop(ket_qua, tt):
     ws = wb.create_sheet("C_Theo_cong")
     cot_c = [Cot("Cổng", lambda m: m[0].ten, rong_toi_thieu=12)]
     for n in ket_qua.nhom:
-        cot_c.append(Cot(f"{_TEN_NHOM[n]} — sự kiện Vào", lambda m, n=n: m[1][n][0], "so", 10, 14))
-        cot_c.append(Cot(f"{_TEN_NHOM[n]} — sự kiện Ra", lambda m, n=n: m[1][n][1], "so", 10, 14))
+        cot_c.append(Cot(f"{trinh_bay.TEN_NHOM[n]} — sự kiện Vào", lambda m, n=n: m[1][n][0], "so", 10, 14))
+        cot_c.append(Cot(f"{trinh_bay.TEN_NHOM[n]} — sự kiện Ra", lambda m, n=n: m[1][n][1], "so", 10, 14))
     hang = _dau_phan(ws, ket_qua, tt, "C. PHÂN BỔ THEO CỔNG (số sự kiện)", len(cot_c))
     hang_cuoi = _ghi_bang(ws, hang, cot_c, ket_qua.phan_c)
     hang_cuoi += 1
@@ -713,7 +612,7 @@ def tao_so_tong_hop(ket_qua, tt):
         return f"{'Ra' if loai == 'RA' else 'Vào'} — {d.su_kien(loai).cong.ten}"
 
     cot_d = [
-        Cot("Nhóm", lambda m: _TEN_NHOM[m[0]]),
+        Cot("Nhóm", lambda m: trinh_bay.TEN_NHOM[m[0]]),
         Cot("STT trong nhóm", lambda m: m[1], "so"),
         Cot("Đối tượng", doi_tuong, rong_toi_thieu=20, rong_toi_da=50),
         Cot("Sự kiện mở", su_kien_mo, rong_toi_thieu=12),
@@ -724,7 +623,7 @@ def tao_so_tong_hop(ket_qua, tt):
         Cot("Trạng thái", lambda m: m[2].nhan_trang_thai, rong_toi_thieu=14),
         Cot("Mã lượt", lambda m: m[2].luot.pk, "so"),
     ]
-    tom_tat = [f"{_TEN_NHOM[n]}: {len(ket_qua.phan_d[n])} lượt" for n in ket_qua.nhom]
+    tom_tat = [f"{trinh_bay.TEN_NHOM[n]}: {len(ket_qua.phan_d[n])} lượt" for n in ket_qua.nhom]
     hang = _dau_phan(ws, ket_qua, tt, "D. LƯỢT CHƯA HOÀN TẤT TẠI THỜI ĐIỂM CHỐT", len(cot_d),
                      ["Số lượng theo từng nhóm (không cộng chung): " + "; ".join(tom_tat)])
     hang_cuoi = _ghi_bang(ws, hang, cot_d, dong_d)
@@ -737,7 +636,7 @@ def tao_so_tong_hop(ket_qua, tt):
     # Phần E — tóm tắt đính chính, huỷ.
     ws = wb.create_sheet("E_Dinh_chinh_huy")
     cot_e = [
-        Cot("Nhóm", lambda m: _TEN_NHOM[m]),
+        Cot("Nhóm", lambda m: trinh_bay.TEN_NHOM[m]),
         Cot("Số lượt có đính chính (lượt)", lambda m: ket_qua.phan_a[m]["luot_dinh_chinh"], "so", 14),
         Cot("Số đính chính (lần)", lambda m: ket_qua.phan_a[m]["so_dinh_chinh"], "so", 12),
         Cot("Số bản ghi đã huỷ (bản ghi)", lambda m: ket_qua.phan_a[m]["ban_ghi_huy"], "so", 14),

@@ -1,8 +1,14 @@
 import datetime
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
+
+
+def o_ky_mac_dinh():
+    """Đề xuất XN-14; chỉ có hiệu lực khi đơn vị bật ``khoi_ky_da_phe_duyet``."""
+    return [{"chuc_danh": "Người lập sổ", "nguoi_lap_so": True}, {"chuc_danh": "Chỉ huy đơn vị"}]
 
 
 class CauHinhSo(models.Model):
@@ -11,13 +17,33 @@ class CauHinhSo(models.Model):
     co_quan_chu_quan = models.CharField("cơ quan chủ quản", max_length=200, blank=True)
     ten_don_vi = models.CharField("tên đơn vị", max_length=200, default="")
     dia_danh = models.CharField("địa danh", max_length=100, blank=True)
-    chuc_danh_xac_nhan = models.CharField("chức danh xác nhận", max_length=100, default="Chỉ huy đơn vị")
+    # Khối ký chỉ được in khi đơn vị đã phê duyệt cấu hình (REQ-GEN-17, XN-14).
+    khoi_ky_da_phe_duyet = models.BooleanField("khối ký đã được đơn vị phê duyệt", default=False)
+    can_cu_phe_duyet = models.CharField(
+        "căn cứ phê duyệt khối ký", max_length=300, blank=True,
+        help_text="Ví dụ: số, ngày văn bản hoặc biên bản đơn vị phê duyệt mẫu ký.",
+    )
+    o_ky = models.JSONField(
+        "các ô ký", default=o_ky_mac_dinh, blank=True,
+        help_text='Danh sách {"chuc_danh": "...", "nguoi_lap_so": true/false, "ap_dung": ["SO-01", ...]}; '
+                  "không có “ap_dung” là áp dụng cho mọi sổ.",
+    )
+    dien_san_ngay_ky = models.BooleanField("điền sẵn ngày ký bằng ngày trích xuất", default=False)
     nguong_ghi_bo_sung_phut = models.PositiveIntegerField("ngưỡng ghi bổ sung (phút)", default=30)
     gio_giao_ca = models.TimeField("giờ giao ca", default=datetime.time(7, 30))
 
     class Meta:
         verbose_name = "cấu hình sổ"
         verbose_name_plural = "cấu hình sổ"
+
+    def clean(self):
+        from .trinh_bay import kiem_tra_o_ky
+
+        loi = kiem_tra_o_ky(self.o_ky)
+        if loi:
+            raise ValidationError({"o_ky": loi})
+        if self.khoi_ky_da_phe_duyet and not self.can_cu_phe_duyet.strip():
+            raise ValidationError({"can_cu_phe_duyet": "Ghi căn cứ phê duyệt trước khi bật khối ký."})
 
     @classmethod
     def lay(cls):

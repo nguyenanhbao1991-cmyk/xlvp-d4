@@ -176,7 +176,7 @@ Quy ước: **Mức** = Cao / Trung bình / Thấp (ưu tiên thực hiện). **
 ### 6.0. Rà soát tài liệu
 
 **TC-DOC-01 — Thống nhất tài liệu trước khi lập trình** · Truy vết: `requirements.md` §10 · Mức: Cao · UAT: Có
-- Bước: (1) Đơn vị đọc bốn tài liệu; (2) trả lời từng mục `XN-01`…`XN-28`; (3) duyệt bản mẫu bố cục §7 của `report_definitions.md`; (4) nhóm dự án cập nhật tài liệu theo trả lời; (5) kiểm tra chéo: mọi `REQ` có ít nhất một `AC` và một `TC`; mọi mã `BR`, `TC`, `XN` được dẫn chiếu đều tồn tại; kết quả mong đợi ở §5.2 thoả đẳng thức cân đối.
+- Bước: (1) Đơn vị đọc bốn tài liệu; (2) trả lời từng mục `XN-01`…`XN-29`; (3) duyệt bản mẫu bố cục §7 của `report_definitions.md`; (4) nhóm dự án cập nhật tài liệu theo trả lời; (5) kiểm tra chéo: mọi `REQ` có ít nhất một `AC` và một `TC`; mọi mã `BR`, `TC`, `XN` được dẫn chiếu đều tồn tại; kết quả mong đợi ở §5.2 thoả đẳng thức cân đối.
 - Mong đợi: không còn mục `XN` ở trạng thái "Chờ xác nhận"; ma trận §7 đầy đủ; tài liệu phiên bản 1.0 có người duyệt.
 
 ### 6.1. Chung (TC-GEN)
