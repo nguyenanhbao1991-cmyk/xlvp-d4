@@ -21,14 +21,15 @@
   # Chưa có bộ cài: đóng gói không kèm, chép bộ cài sang máy chủ riêng.
   powershell -ExecutionPolicy Bypass -File trien_khai\windows\dong_goi.ps1
 #>
-# PositionalBinding=$false: giá trị thừa (ví dụ tệp thứ hai sau dấu phẩy) báo lỗi rõ ràng thay vì
-# bị gán nhầm vào -PhienBanPython.
+# Gọi bằng "powershell -File ... -KemTep a, b", PowerShell chuyển "b" thành đối số rời: $TepThem gom các
+# đối số rời đó (thay vì báo lỗi hoặc gán nhầm vào -PhienBanPython) và coi là tệp kèm theo.
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$PhienBanPython = "3.12",
     [string[]]$KemTep = @(),
     [switch]$TimBoCai,
-    [string]$ThuMucRa = ""
+    [string]$ThuMucRa = "",
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$TepThem = @()
 )
 . "$PSScriptRoot\chung.ps1"
 
@@ -50,7 +51,7 @@ if ($TimBoCai) {
 }
 
 # Khi gọi bằng "powershell -File", PowerShell không tách danh sách theo dấu phẩy: tự tách ở đây.
-$cac_tep = @($KemTep | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().Trim('"') } |
+$cac_tep = @(@($KemTep) + @($TepThem) | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim().Trim('"') } |
     Where-Object { $_ })
 foreach ($tep in $cac_tep) {
     if ($tep -match "[<>]") { throw "Giá trị '$tep' là chỗ để điền: hãy thay bằng đường dẫn thật tới tệp bộ cài." }
