@@ -1,4 +1,9 @@
 __pycache__/
 *.pyc
 /staticfiles/
+/nhat_ky/
+/sao_luu/
+/goi/
+/.venv/
 .env
+qlcbcs.env

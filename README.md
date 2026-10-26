@@ -23,7 +23,13 @@ Excel, Word và PDF**: SO-01 CBCS, SO-02 Khách, SO-03 Phương tiện, SO-04 T�
 | `baocao/xem_truoc.py`, `baocao/man_hinh.py` | Màn hình “Xuất sổ theo dõi”: xem trước (không chốt), xuất, tải tệp đã chốt |
 | `baocao/tests/` | Kiểm thử; `du_lieu.py` dựng bộ dữ liệu DS-01 của `docs/test_plan.md` |
 
-## Chạy thử
+## Triển khai chính thức trên Windows
+
+Xem [`docs/trien_khai_windows.md`](docs/trien_khai_windows.md): Waitress + WhiteNoise, chạy nền bằng Task Scheduler
+(tài khoản LOCAL SERVICE), tường lửa chỉ mở cho mạng con cục bộ, sao lưu `pg_dump` hằng ngày, cài ngoại tuyến.
+Các script nằm trong `trien_khai/windows/`; cấu hình trong `qlcbcs.env` (mẫu: `qlcbcs.env.mau`).
+
+## Chạy thử (phát triển)
 
 ```bash
 pip install -r requirements.txt

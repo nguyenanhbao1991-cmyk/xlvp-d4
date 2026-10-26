@@ -3,3 +3,8 @@ openpyxl>=3.1,<3.2
 psycopg[binary]>=3.2,<3.3
 python-docx>=1.1,<2
 reportlab>=4.2,<5
+# Chạy chính thức (Windows): máy chủ WSGI và phục vụ tệp tĩnh.
+waitress>=3.0,<4
+whitenoise>=6.6,<7
+# Windows không có cơ sở dữ liệu múi giờ; thiếu gói này Django không dùng được Asia/Ho_Chi_Minh.
+tzdata>=2024.1
